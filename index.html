@@ -157,7 +157,10 @@
     color:var(--ink-faint);margin:0 0 6px;
   }
   .activity-list{list-style:none;margin:0;padding:0;}
-  .activity-list li{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+  .activity-list li{margin-bottom:6px;}
+  .activity-row{display:flex;align-items:center;gap:6px;}
+  .activity-note{display:none;margin-top:5px;width:100%;min-height:36px;font-size:12.5px;}
+  .activity-item.open .activity-note{display:block;}
   input[type=text], input[type=number], textarea, select{
     font-family:'Inter',sans-serif;font-size:13.5px;color:var(--ink);
     background:var(--surface-alt);border:1px solid var(--line);border-radius:6px;
@@ -252,7 +255,7 @@
 <div class="page">
 
   <header class="hero">
-    <p class="eyebrow">Jul 14 - Aug 3, 2026 · Trip Dashboard</p>
+    <p class="eyebrow">Jul 14 – Aug 3, 2026 · Trip Dashboard</p>
     <h1 class="hero-title">20 Days in the Alps</h1>
     <p class="hero-route">Vienna → Hallstatt → Munich → Zürich → Luzern → Grindelwald → Zermatt → Milan → Florence → Venice → Dolomites → Villach → Vienna</p>
     <div class="stat-row" id="stat-row"></div>
@@ -380,7 +383,7 @@
   ];
 
   var COUNTRY_HEX = { Austria:"#2F5233", Germany:"#3E6E8E", Switzerland:"#B9863A", Italy:"#A8512E" };
-  var CURRENCY_SYMBOL = { EUR:"€", CHF:"CHF", USD:"$", GBP:"£" };
+  var CURRENCY_SYMBOL = { EUR:"€", CHF:"CHF", USD:"$", GBP:"£", NTD:"NT$" };
 
   var SEGMENTS = null;
   var BUDGET = null;
@@ -561,8 +564,11 @@
     // Activities
     html += '<div class="field-block"><p class="field-label">Activities</p><ul class="activity-list">';
     seg.activities.forEach(function(a,i){
-      html += '<li><input type="text" value="'+esc(a)+'" data-seg="'+seg.id+'" data-field="activities" data-idx="'+i+'">';
-      html += '<button class="icon-btn" data-action="remove-activity" data-seg="'+seg.id+'" data-idx="'+i+'" aria-label="Remove">×</button></li>';
+      html += '<li class="activity-item"><div class="activity-row">';
+      html += '<input type="text" class="activity-text" value="'+esc(a.text)+'" data-seg="'+seg.id+'" data-field="activities-text" data-idx="'+i+'">';
+      html += '<button class="icon-btn" data-action="remove-activity" data-seg="'+seg.id+'" data-idx="'+i+'" aria-label="Remove">×</button></div>';
+      html += '<textarea class="activity-note" placeholder="Add details — time, address, booking link…" data-seg="'+seg.id+'" data-field="activities-note" data-idx="'+i+'">'+esc(a.note)+'</textarea>';
+      html += '</li>';
     });
     html += '</ul><button class="add-btn" data-action="add-activity" data-seg="'+seg.id+'">+ Add activity</button></div>';
 
@@ -588,6 +594,14 @@
 
   function findSeg(id){ for(var i=0;i<SEGMENTS.length;i++){ if(SEGMENTS[i].id===id) return SEGMENTS[i]; } return null; }
 
+  function normalizeActivities(segments){
+    segments.forEach(function(seg){
+      seg.activities = (seg.activities||[]).map(function(a){
+        return (typeof a === "string") ? {text:a, note:""} : a;
+      });
+    });
+  }
+
   var saveItinerary = debounce(function(){ saveJSON("itinerary-data", SEGMENTS); }, 500);
 
   function setField(seg, field, value){
@@ -606,9 +620,12 @@
     var seg=findSeg(segId);
     if(!seg) return;
     var field=t.getAttribute("data-field");
-    if(field==="activities"){
+    if(field==="activities-text"){
       var idx=parseInt(t.getAttribute("data-idx"),10);
-      seg.activities[idx]=t.value;
+      seg.activities[idx].text=t.value;
+    } else if(field==="activities-note"){
+      var idx2=parseInt(t.getAttribute("data-idx"),10);
+      seg.activities[idx2].note=t.value;
     } else if(field){
       setField(seg, field, t.value);
     }
@@ -617,13 +634,18 @@
 
   function handleItineraryClick(e){
     var t=e.target;
+    if(t.classList && t.classList.contains("activity-text")){
+      var li=t.closest(".activity-item");
+      if(li) li.classList.add("open");
+      return;
+    }
     var action=t.getAttribute("data-action");
     if(!action) return;
     var segId=t.getAttribute("data-seg");
     var seg=findSeg(segId);
     if(!seg) return;
     if(action==="add-activity"){
-      seg.activities.push("");
+      seg.activities.push({text:"", note:""});
       renderItinerary();
       saveItinerary();
       var sel=document.querySelector('#card-'+segId+' .activity-list li:last-child input');
@@ -855,6 +877,7 @@
       if(hasStorage()) window.storage.delete(k, false).catch(function(){});
     });
     SEGMENTS = JSON.parse(JSON.stringify(DEFAULT_SEGMENTS));
+    normalizeActivities(SEGMENTS);
     BUDGET = JSON.parse(JSON.stringify(DEFAULT_BUDGET));
     PACKING_STATE = {checked:{}, custom:{}};
     renderAll();
@@ -876,6 +899,7 @@
     loadJSON("packing-data", null)
   ]).then(function(results){
     SEGMENTS = results[0] || JSON.parse(JSON.stringify(DEFAULT_SEGMENTS));
+    normalizeActivities(SEGMENTS);
     BUDGET = results[1] || JSON.parse(JSON.stringify(DEFAULT_BUDGET));
     PACKING_STATE = results[2] || {checked:{}, custom:{}};
     if(!PACKING_STATE.checked) PACKING_STATE.checked={};

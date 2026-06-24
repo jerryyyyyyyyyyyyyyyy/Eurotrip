@@ -140,6 +140,12 @@ textarea{resize:vertical;min-height:38px;}
 .expense-entry{border-bottom:1px solid var(--line);padding:9px 0;}
 .expense-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .expense-split-info{font-size:12px;color:var(--ink-faint);padding:3px 0 0 4px;}
+.exp-del-btn{appearance:none;border:1px solid var(--line);background:var(--surface-alt);color:var(--ink-faint);border-radius:5px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;white-space:nowrap;flex:0 0 auto;transition:all .15s;}
+.exp-del-btn:hover{border-color:var(--warn);color:var(--warn);background:#fff8f7;}
+.exp-confirm-row{display:none;align-items:center;gap:8px;padding:6px 4px 2px;font-size:12.5px;color:var(--warn);}
+.exp-confirm-row.show{display:flex;}
+.exp-confirm-yes{appearance:none;border:none;border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;background:var(--warn);color:#fff;font-weight:700;}
+.exp-confirm-no{appearance:none;border:1px solid var(--line);border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;background:var(--surface-alt);color:var(--ink);}
 .add-expense-form{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;}
 .add-exp-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px;align-items:center;}
 .settlement-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;}
@@ -174,7 +180,7 @@ textarea{resize:vertical;min-height:38px;}
   <header class="hero">
     <p class="eyebrow">2026年7月14日 – 8月3日 · 旅遊總覽</p>
     <h1 class="hero-title">Alps 20 Days</h1>
-    <p class="hero-route">維也納 → 哈爾施塔特 → 慕尼黑 → 蘇黎世 → 盧塞恩 → 格林德瓦 → 策馬特 → 米蘭 → 佛羅倫斯 → 威尼斯 → 多洛米蒂 → 菲拉赫 → 維也納</p>
+    <p class="hero-route">維也納 → 哈爾施塔特 → 慕尼黑 → 蘇黎世 → 盧塞恩 → 格林德瓦 → 策馬特 → 米蘭 → 佛羅倫斯 → 威尼斯 → 多落米地（3天）→ 菲拉赫 → 維也納</p>
     <div class="sync-bar">
       <span class="sync-dot" id="sync-dot"></span>
       <span id="sync-label">連線中…</span>
@@ -294,9 +300,15 @@ var DEFAULT_SEGMENTS=[
   {id:"venice",city:"威尼斯",country:"義大利",start:"2026-07-28",end:"2026-07-30",nights:2,lat:45.4408,lon:12.3155,elevation:2,
    activities:[{text:"聖馬可廣場與大教堂",note:""},{text:"大運河水上巴士之旅",note:""},{text:"穆拉諾與布拉諾島",note:""}],
    transport:{mode:"火車",note:"從佛羅倫斯約2小時"},lodging:{name:"",cost:""},notes:""},
-  {id:"dolomites",city:"多洛米蒂",country:"義大利",start:"2026-07-30",end:"2026-08-02",nights:3,lat:46.5404,lon:12.1357,elevation:1224,
-   activities:[{text:"三峰岩健行",note:""},{text:"布萊爾湖",note:""},{text:"加烏山口景觀公路",note:""}],
-   transport:{mode:"建議租車",note:"從威尼斯約3小時，火車班次有限"},lodging:{name:"",cost:""},notes:""},
+  {id:"dolomites1",city:"多落米地 Day 1",country:"義大利",start:"2026-07-30",end:"2026-07-31",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
+   activities:[{text:"三峰岩健行（Tre Cime di Lavaredo）",note:""}],
+   transport:{mode:"建議租車",note:"從威尼斯約3小時，多洛米蒂火車班次有限"},lodging:{name:"",cost:""},notes:""},
+  {id:"dolomites2",city:"多落米地 Day 2",country:"義大利",start:"2026-07-31",end:"2026-08-01",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
+   activities:[{text:"布萊爾湖（Lago di Braies）",note:""}],
+   transport:{mode:"租車移動",note:"在多洛米蒂區域內自駕"},lodging:{name:"",cost:""},notes:""},
+  {id:"dolomites3",city:"多落米地 Day 3",country:"義大利",start:"2026-08-01",end:"2026-08-02",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
+   activities:[{text:"加烏山口景觀公路（Passo Giau）",note:""}],
+   transport:{mode:"租車移動",note:"在多洛米蒂區域內自駕"},lodging:{name:"",cost:""},notes:""},
   {id:"villach",city:"菲拉赫",country:"奧地利",start:"2026-08-02",end:"2026-08-03",nights:1,lat:46.6111,lon:13.8558,elevation:501,
    activities:[{text:"沃爾特湖",note:""},{text:"舊城區漫步",note:""}],
    transport:{mode:"汽車／巴士",note:"從多洛米蒂約2.5–3小時"},lodging:{name:"",cost:""},notes:""},
@@ -351,6 +363,26 @@ function isToday(a,b){var t=new Date();t.setHours(0,0,0,0);var s=parseLocalDate(
 function debounce(fn,wait){var t;return function(){var args=arguments;clearTimeout(t);t=setTimeout(function(){fn.apply(null,args);},wait);};}
 function serialize(obj){return JSON.stringify(obj);}
 function normalizeActivities(segs){segs.forEach(function(seg){seg.activities=(seg.activities||[]).map(function(a){return typeof a==="string"?{text:a,note:""}:a;});});}
+
+// Migration: replace old single "dolomites" entry with three separate day entries
+function migrateDolomites(segs){
+  var idx=-1;
+  for(var i=0;i<segs.length;i++){if(segs[i].id==="dolomites"){idx=i;break;}}
+  if(idx===-1)return false; // already migrated or not found
+  var three=[
+    {id:"dolomites1",city:"多落米地 Day 1",country:"義大利",start:"2026-07-30",end:"2026-07-31",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
+     activities:[{text:"三峰岩健行（Tre Cime di Lavaredo）",note:""}],
+     transport:{mode:"建議租車",note:"從威尼斯約3小時，多洛米蒂火車班次有限"},lodging:{name:"",cost:""},notes:""},
+    {id:"dolomites2",city:"多落米地 Day 2",country:"義大利",start:"2026-07-31",end:"2026-08-01",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
+     activities:[{text:"布萊爾湖（Lago di Braies）",note:""}],
+     transport:{mode:"租車移動",note:"在多洛米蒂區域內自駕"},lodging:{name:"",cost:""},notes:""},
+    {id:"dolomites3",city:"多落米地 Day 3",country:"義大利",start:"2026-08-01",end:"2026-08-02",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
+     activities:[{text:"加烏山口景觀公路（Passo Giau）",note:""}],
+     transport:{mode:"租車移動",note:"在多洛米蒂區域內自駕"},lodging:{name:"",cost:""},notes:""}
+  ];
+  segs.splice(idx,1,three[0],three[1],three[2]);
+  return true; // migration performed — caller should save back to Firebase
+}
 
 /* =========================================================
    SAVE — debounced Firebase writes
@@ -719,14 +751,20 @@ function renderBudget(){
     var exAmt=parseFloat(ex.amount)||0,exSym=getCurrency(ex.currency||disp).symbol;
     var dispAmt=convertAmt(exAmt,ex.currency||disp,disp);
     var sl=ex.splitAmong&&ex.splitAmong.length?ex.splitAmong:(members.length?members:["全體"]);
-    h+='<div class="expense-entry"><div class="expense-main">';
+    h+='<div class="expense-entry" id="exprow-'+ex.id+'"><div class="expense-main">';
     h+='<span class="mono" style="font-size:12px;color:var(--ink-soft);flex:0 0 44px">'+esc(ex.date||"—")+'</span>';
     h+='<span style="flex:1;font-size:13.5px">'+esc(ex.note||"—")+'</span>';
     h+='<span style="font-size:12px;color:var(--ink-soft);white-space:nowrap">'+labelForCat(ex.category)+'</span>';
     h+='<span class="mono" style="font-size:13px;white-space:nowrap">'+exSym+' '+exAmt.toLocaleString(undefined,{maximumFractionDigits:0});
     if(ex.currency&&ex.currency!==disp)h+=' <span style="color:var(--ink-faint);font-size:11px">≈'+sym+' '+dispAmt.toLocaleString(undefined,{maximumFractionDigits:0})+'</span>';
-    h+='</span><button class="icon-btn" data-action="remove-expense" data-id="'+ex.id+'">×</button></div>';
-    h+='<div class="expense-split-info">💳 '+esc(ex.paidBy||"—")+' 付款 → 分攤：'+sl.map(function(m){return esc(m);}).join("、")+'</div></div>';
+    h+='</span>';
+    h+='<button class="exp-del-btn" data-action="init-delete" data-id="'+ex.id+'">刪除</button></div>';
+    h+='<div class="expense-split-info">💳 '+esc(ex.paidBy||"—")+' 付款 → 分攤：'+sl.map(function(m){return esc(m);}).join("、")+'</div>';
+    h+='<div class="exp-confirm-row" id="expconf-'+ex.id+'">';
+    h+='<span>⚠ 確定刪除這筆支出？</span>';
+    h+='<button class="exp-confirm-yes" data-action="confirm-delete" data-id="'+ex.id+'">確定刪除</button>';
+    h+='<button class="exp-confirm-no" data-action="cancel-delete" data-id="'+ex.id+'">取消</button>';
+    h+='</div></div>';
   });}
   // Add form
   h+='<div class="add-expense-form"><div class="add-exp-row">';
@@ -776,7 +814,28 @@ function wireBudgetEvents(){
     BUDGET.expenses.push({id:"e"+Date.now(),date:document.getElementById("new-exp-date").value,note:document.getElementById("new-exp-note").value,category:document.getElementById("new-exp-cat").value,amount:amount,currency:document.getElementById("new-exp-currency").value,paidBy:document.getElementById("new-exp-payer").value,splitAmong:sl});
     saveBudget();renderBudget();
   });
-  cc.querySelectorAll('[data-action="remove-expense"]').forEach(function(btn){btn.addEventListener("click",function(e){var id=e.target.getAttribute("data-id");BUDGET.expenses=BUDGET.expenses.filter(function(ex){return ex.id!==id;});saveBudget();renderBudget();});});
+  // Single expense delete — three-step: click 刪除 → confirm row appears → confirm or cancel
+  cc.querySelectorAll('[data-action="init-delete"]').forEach(function(btn){
+    btn.addEventListener("click",function(e){
+      var id=e.target.getAttribute("data-id");
+      var conf=document.getElementById("expconf-"+id);
+      if(conf)conf.classList.toggle("show");
+    });
+  });
+  cc.querySelectorAll('[data-action="confirm-delete"]').forEach(function(btn){
+    btn.addEventListener("click",function(e){
+      var id=e.target.getAttribute("data-id");
+      BUDGET.expenses=BUDGET.expenses.filter(function(ex){return ex.id!==id;});
+      saveBudget();renderBudget();
+    });
+  });
+  cc.querySelectorAll('[data-action="cancel-delete"]').forEach(function(btn){
+    btn.addEventListener("click",function(e){
+      var id=e.target.getAttribute("data-id");
+      var conf=document.getElementById("expconf-"+id);
+      if(conf)conf.classList.remove("show");
+    });
+  });
 }
 function renderBudgetRemaining(){
   var disp=BUDGET.currency||"TWD",sym=getCurrency(disp).symbol;
@@ -860,7 +919,9 @@ function syncFromFirebase(){
       if(_isEditing)return;
       var newIt=serialize(results[0]),newBu=serialize(results[1]),newPa=serialize(results[2]);
       var changed=false;
-      if(results[0]&&newIt!==_lastItinerary){SEGMENTS=results[0];normalizeActivities(SEGMENTS);_lastItinerary=newIt;changed=true;}
+      if(results[0]&&newIt!==_lastItinerary){SEGMENTS=results[0];normalizeActivities(SEGMENTS);
+        if(migrateDolomites(SEGMENTS)){normalizeActivities(SEGMENTS);fbSet("itinerary-data",SEGMENTS).catch(function(){});}
+        _lastItinerary=serialize(SEGMENTS);changed=true;}
       if(results[1]&&newBu!==_lastBudget){BUDGET=results[1];if(!BUDGET.rates)BUDGET.rates={};if(!BUDGET.members)BUDGET.members=[];_lastBudget=newBu;changed=true;}
       if(results[2]&&newPa!==_lastPacking){PACKING_STATE=results[2];if(!PACKING_STATE.checked)PACKING_STATE.checked={};if(!PACKING_STATE.custom)PACKING_STATE.custom={};_lastPacking=newPa;changed=true;}
       if(changed)renderAll();
@@ -881,6 +942,12 @@ setSyncStatus("saving","連線至 Firebase…");
 Promise.all([fbGet("itinerary-data"),fbGet("budget-data"),fbGet("packing-data")])
   .then(function(results){
     SEGMENTS=results[0]||JSON.parse(JSON.stringify(DEFAULT_SEGMENTS));normalizeActivities(SEGMENTS);
+    // Auto-migrate: if old single dolomites entry exists, split it into 3 and save back
+    if(migrateDolomites(SEGMENTS)){
+      normalizeActivities(SEGMENTS);
+      fbSet("itinerary-data",SEGMENTS).catch(function(){});
+      setSyncStatus("saving","自動升級多落米地為三天…");
+    }
     BUDGET=results[1]||JSON.parse(JSON.stringify(DEFAULT_BUDGET));
     if(!BUDGET.rates)BUDGET.rates={};if(!BUDGET.members)BUDGET.members=[];
     PACKING_STATE=results[2]||{checked:{},custom:{}};

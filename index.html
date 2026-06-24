@@ -6,6 +6,8 @@
 <title>歐洲20天 — 旅遊總覽</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
 :root{
   --bg:#EEF0E9;--surface:#FFF;--surface-alt:#F6F7F2;
@@ -87,8 +89,31 @@ textarea{resize:vertical;min-height:38px;}
 .add-btn:hover{text-decoration:underline;}
 /* Map */
 .map-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);}
-.map-scroll{overflow-x:auto;}
-#route-map{display:block;margin:0 auto;min-width:480px;max-width:640px;width:100%;height:auto;}
+#ml-map{height:560px;border-radius:8px;}
+.map-legend{display:flex;gap:14px;flex-wrap:wrap;padding:14px 4px 0;}
+/* MapLibre popup overrides */
+.maplibregl-popup-content{padding:0;border-radius:10px;overflow:hidden;box-shadow:0 4px 16px rgba(30,42,34,.15);border:1px solid #DBDFD2;width:270px;}
+.maplibregl-popup-close-button{font-size:18px;padding:6px 10px;color:#8C998D;z-index:1;}
+.maplibregl-popup-close-button:hover{background:none;color:#1E2A22;}
+.popup-head{padding:12px 14px 10px;border-bottom:1px solid #DBDFD2;}
+.popup-city{font-family:'Big Shoulders Display',sans-serif;font-weight:800;font-size:20px;text-transform:uppercase;margin:0 0 3px;color:#1E2A22;}
+.popup-meta{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5C6B5E;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.popup-country-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 auto;}
+.popup-body{padding:10px 14px 4px;}
+.popup-section{margin-bottom:8px;}
+.popup-label{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8C998D;margin:0 0 3px;}
+.popup-value{font-size:12.5px;color:#1E2A22;line-height:1.5;}
+.popup-activities{list-style:none;margin:0;padding:0;}
+.popup-activities li{font-size:12.5px;color:#1E2A22;padding:2px 0;display:flex;gap:5px;align-items:baseline;}
+.popup-activities li::before{content:"·";color:#8C998D;flex:0 0 auto;}
+.popup-side-trip{background:#F6F7F2;border:1px dashed #C3C9B8;border-radius:6px;padding:7px 10px;margin:6px 0 4px;font-size:12px;color:#5C6B5E;}
+.popup-side-trip-label{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#B9863A;margin-right:4px;}
+.popup-jump-btn{display:block;width:100%;text-align:center;padding:8px;background:#2F5233;color:#fff;font-family:'Noto Sans TC',sans-serif;font-weight:700;font-size:12.5px;border:none;cursor:pointer;margin-top:8px;}
+.popup-jump-btn:hover{background:#3a6640;}
+.map-marker{cursor:pointer;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));transition:transform .15s;}
+.map-marker:hover{transform:scale(1.15);}
+.side-marker{cursor:pointer;filter:drop-shadow(0 1px 2px rgba(0,0,0,.2));transition:transform .15s;}
+.side-marker:hover{transform:scale(1.2);}
 /* Budget */
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);margin-bottom:16px;}
 .card h4{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--ink-faint);margin:0 0 10px;}
@@ -178,8 +203,9 @@ textarea{resize:vertical;min-height:38px;}
 
     <section class="tab-panel" id="panel-map">
       <div class="map-card">
-        <p class="section-label">路線地圖（示意圖）</p>
-        <div class="map-scroll"><svg id="route-map" viewBox="0 0 760 640"></svg></div>
+        <p class="section-label">互動地圖 — 縮放流暢，點擊標記查看城市詳情</p>
+        <div id="ml-map"></div>
+        <div class="map-legend" id="map-legend"></div>
       </div>
     </section>
 
@@ -245,7 +271,7 @@ var DEFAULT_SEGMENTS=[
   {id:"munich",city:"慕尼黑",country:"德國",start:"2026-07-16",end:"2026-07-18",nights:2,lat:48.1351,lon:11.5820,elevation:519,
    activities:[{text:"瑪利亞廣場與格洛肯斯皮爾鐘琴",note:""},{text:"英式花園",note:""},{text:"維克圖亞連市場",note:""}],
    transport:{mode:"火車",note:"從哈爾施塔特經薩爾斯堡，約4小時"},lodging:{name:"",cost:""},notes:"",
-   sideTrip:{name:"新天鵝堡",note:"從菲森出發日歸，火車＋公車單程約2小時，請提前訂票"}},
+   sideTrip:{name:"新天鵝堡",note:"從菲森出發日歸，火車＋公車單程約2小時，請提前訂票",lat:47.5576,lon:10.7498}},
   {id:"zurich",city:"蘇黎世",country:"瑞士",start:"2026-07-18",end:"2026-07-19",nights:1,lat:47.3769,lon:8.5417,elevation:408,
    activities:[{text:"舊城區與湖畔漫步",note:""},{text:"班霍夫大街",note:""},{text:"林登霍夫眺望點",note:""}],
    transport:{mode:"火車",note:"從慕尼黑搭EC列車，約3.5–4小時"},lodging:{name:"",cost:""},notes:""},
@@ -261,7 +287,7 @@ var DEFAULT_SEGMENTS=[
   {id:"milan",city:"米蘭",country:"義大利",start:"2026-07-25",end:"2026-07-26",nights:1,lat:45.4642,lon:9.1900,elevation:120,
    activities:[{text:"米蘭大教堂與屋頂漫步",note:""},{text:"艾曼紐二世拱廊",note:""},{text:"最後的晚餐（需提前訂票）",note:""}],
    transport:{mode:"火車",note:"從策馬特經Brig，約4–5小時"},lodging:{name:"",cost:""},notes:"",
-   sideTrip:{name:"比薩",note:"前往佛羅倫斯途中順遊，從米蘭搭火車約3小時"}},
+   sideTrip:{name:"比薩",note:"前往佛羅倫斯途中順遊，從米蘭搭火車約3小時",lat:43.7229,lon:10.3966}},
   {id:"florence",city:"佛羅倫斯",country:"義大利",start:"2026-07-26",end:"2026-07-28",nights:2,lat:43.7696,lon:11.2558,elevation:50,
    activities:[{text:"大教堂與布魯內萊斯基圓頂",note:""},{text:"烏菲茲美術館",note:""},{text:"舊橋夕陽美景",note:""}],
    transport:{mode:"火車",note:"從比薩約1小時"},lodging:{name:"",cost:""},notes:""},
@@ -386,38 +412,142 @@ function renderElevationChart(){
     svg+='<text x="'+p.x.toFixed(1)+'" y="'+(pT+iH+18).toFixed(1)+'" text-anchor="middle" font-family="Noto Sans TC,sans-serif" font-size="11" fill="#1E2A22" transform="rotate(-38 '+p.x.toFixed(1)+' '+(pT+iH+18).toFixed(1)+')" style="cursor:pointer" data-jump="'+p.seg.id+'">'+esc(lbl)+'</text>';
   });
   document.getElementById("elevation-chart").innerHTML=svg;
-  document.getElementById("elevation-chart").addEventListener("click",handleJumpClick);
+  document.getElementById("elevation-chart").addEventListener("click",function(e){var id=e.target.getAttribute("data-jump");if(id)jumpToItinerary(id);});
   var leg="";
   Object.keys(COUNTRY_HEX).forEach(function(c){leg+='<span class="legend-item"><span class="legend-dot" style="background:'+COUNTRY_HEX[c]+'"></span>'+c+'</span>';});
   document.getElementById("legend").innerHTML=leg;
 }
-function handleJumpClick(e){
-  var id=e.target.getAttribute("data-jump");if(!id)return;
-  setActiveTab("itinerary");
-  setTimeout(function(){var card=document.getElementById("card-"+id);if(card){card.scrollIntoView({behavior:"smooth",block:"center"});card.style.transition="box-shadow .2s";card.style.boxShadow="0 0 0 2px #2F5233";setTimeout(function(){card.style.boxShadow="";},1200);}},60);
-}
+
 
 /* =========================================================
-   MAP
+   MAP — MapLibre GL JS (WebGL vector tiles, instant zoom)
    ========================================================= */
+var _mlMap=null,_mlMarkers=[];
+
+function jumpToItinerary(segId){
+  setActiveTab("itinerary");
+  setTimeout(function(){
+    var card=document.getElementById("card-"+segId);
+    if(card){card.scrollIntoView({behavior:"smooth",block:"center"});card.style.transition="box-shadow .2s";card.style.boxShadow="0 0 0 2px #2F5233";setTimeout(function(){card.style.boxShadow="";},1400);}
+  },80);
+}
+
+function makeMarkerEl(number,color){
+  var div=document.createElement("div");
+  div.className="map-marker";
+  div.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="30" height="38" viewBox="0 0 30 38">'
+    +'<path d="M15 0C6.72 0 0 6.72 0 15c0 9.37 15 23 15 23S30 24.37 30 15C30 6.72 23.28 0 15 0z" fill="'+color+'" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"/>'
+    +'<text x="15" y="20" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" font-weight="700" fill="#fff">'+number+'</text>'
+    +'</svg>';
+  return div;
+}
+function makeSideMarkerEl(name){
+  var div=document.createElement("div");
+  div.className="side-marker";
+  div.title=name;
+  div.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">'
+    +'<circle cx="10" cy="10" r="8" fill="#B9863A" stroke="#fff" stroke-width="2"/>'
+    +'<text x="10" y="14" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#fff">★</text>'
+    +'</svg>';
+  return div;
+}
+
+function buildPopupHTML(seg,idx){
+  var color=COUNTRY_HEX[seg.country]||"#888";
+  var nightsLabel=seg.isDeparture?"回程出發":(seg.nights+"晚");
+  var h='<div class="popup-head"><div class="popup-city">'+esc(seg.city)+'</div>';
+  h+='<div class="popup-meta"><span class="popup-country-dot" style="background:'+color+'"></span>';
+  h+=esc(seg.country)+' · '+formatDateRange(seg.start,seg.end)+' · '+nightsLabel+'</div></div>';
+  h+='<div class="popup-body">';
+  var acts=(seg.activities||[]).filter(function(a){return(typeof a==="string"?a:(a.text||"")).trim();});
+  if(acts.length){
+    h+='<div class="popup-section"><p class="popup-label">活動</p><ul class="popup-activities">';
+    acts.forEach(function(a){var t=typeof a==="string"?a:(a.text||"");h+='<li>'+esc(t)+'</li>';});
+    h+='</ul></div>';
+  }
+  if(seg.lodging&&seg.lodging.name){
+    h+='<div class="popup-section"><p class="popup-label">住宿</p><div class="popup-value">'+esc(seg.lodging.name)+(seg.lodging.cost?' · '+esc(seg.lodging.cost):'')+'</div></div>';
+  }
+  if(seg.transport&&seg.transport.mode){
+    h+='<div class="popup-section"><p class="popup-label">交通</p><div class="popup-value">'+esc(seg.transport.mode)+(seg.transport.note?' — '+esc(seg.transport.note):'')+'</div></div>';
+  }
+  if(seg.sideTrip){
+    h+='<div class="popup-side-trip"><span class="popup-side-trip-label">順遊 ★</span><strong>'+esc(seg.sideTrip.name)+'</strong><br>'+esc(seg.sideTrip.note)+'</div>';
+  }
+  if(seg.notes){h+='<div class="popup-section"><p class="popup-label">備註</p><div class="popup-value">'+esc(seg.notes)+'</div></div>';}
+  h+='</div><button class="popup-jump-btn" onclick="window.jumpToItinerary(\''+seg.id+'\')">→ 查看行程詳情</button>';
+  return h;
+}
+
 function renderMap(){
-  var lons=SEGMENTS.map(function(s){return s.lon;}),lats=SEGMENTS.map(function(s){return s.lat;});
-  var lonMin=Math.min.apply(null,lons),lonMax=Math.max.apply(null,lons),latMin=Math.min.apply(null,lats),latMax=Math.max.apply(null,lats);
-  var w=760,h=640,pad=70,sc=Math.min((w-2*pad)/(lonMax-lonMin),(h-2*pad)/(latMax-latMin));
-  function proj(lat,lon){return{x:pad+(lon-lonMin)*sc,y:pad+(latMax-lat)*sc};}
-  var pts=SEGMENTS.map(function(s){var p=proj(s.lat,s.lon);return{x:p.x,y:p.y,seg:s};});
-  var ls=pts.map(function(p){return p.x.toFixed(1)+","+p.y.toFixed(1);}).join(" ");
-  var svg='<polyline points="'+ls+'" fill="none" stroke="#C3C9B8" stroke-width="2" stroke-dasharray="5,5"/>';
-  pts.forEach(function(p,i){
-    var c=COUNTRY_HEX[p.seg.country]||"#888";
-    var lbl=i===0?p.seg.city+"（起點）":(p.seg.isDeparture?p.seg.city+"（飛回）":p.seg.city);
-    var anc=p.x>w-140?"end":"start",dx=p.x>w-140?-10:10;
-    svg+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="6" fill="'+c+'" stroke="#fff" stroke-width="2" style="cursor:pointer" data-jump="'+p.seg.id+'"/>';
-    svg+='<text x="'+(p.x+dx).toFixed(1)+'" y="'+(p.y+4).toFixed(1)+'" text-anchor="'+anc+'" font-family="Noto Sans TC,sans-serif" font-size="12" fill="#1E2A22" style="cursor:pointer" data-jump="'+p.seg.id+'">'+esc(lbl)+'</text>';
-    if(p.seg.sideTrip)svg+='<text x="'+(p.x+dx).toFixed(1)+'" y="'+(p.y+18).toFixed(1)+'" text-anchor="'+anc+'" font-family="Noto Sans TC,sans-serif" font-size="10" fill="#8C998D">+ '+esc(p.seg.sideTrip.name)+'</text>';
+  if(!document.getElementById("ml-map"))return;
+  if(_mlMap){
+    // Already built — just invalidate size in case panel was hidden
+    _mlMap.resize();
+    return;
+  }
+
+  _mlMap=new maplibregl.Map({
+    container:"ml-map",
+    style:"https://tiles.openfreemap.org/styles/liberty",
+    center:[12.3,47.0],
+    zoom:5.6,
+    attributionControl:true
   });
-  document.getElementById("route-map").innerHTML=svg;
-  document.getElementById("route-map").addEventListener("click",handleJumpClick);
+
+  // Nav controls (zoom +/-)
+  _mlMap.addControl(new maplibregl.NavigationControl({visualizePitch:false}),"top-right");
+  // Full screen
+  _mlMap.addControl(new maplibregl.FullscreenControl(),"top-right");
+
+  _mlMap.on("load",function(){
+    // Main route line
+    _mlMap.addSource("route",{type:"geojson",data:{type:"Feature",geometry:{type:"LineString",
+      coordinates:SEGMENTS.map(function(s){return[s.lon,s.lat];})}}});
+    _mlMap.addLayer({id:"route-line",type:"line",source:"route",
+      paint:{"line-color":"#2F5233","line-width":2.5,"line-dasharray":[4,3],"line-opacity":0.7}});
+
+    // Side-trip dashed lines
+    SEGMENTS.forEach(function(seg){
+      if(!seg.sideTrip||!seg.sideTrip.lat)return;
+      var sid="st-"+seg.id;
+      _mlMap.addSource(sid,{type:"geojson",data:{type:"Feature",geometry:{type:"LineString",
+        coordinates:[[seg.lon,seg.lat],[seg.sideTrip.lon,seg.sideTrip.lat]]}}});
+      _mlMap.addLayer({id:sid,type:"line",source:sid,
+        paint:{"line-color":"#B9863A","line-width":1.5,"line-dasharray":[3,4],"line-opacity":0.6}});
+    });
+
+    // City markers
+    SEGMENTS.forEach(function(seg,i){
+      var el=makeMarkerEl(i+1,COUNTRY_HEX[seg.country]||"#888");
+      var popup=new maplibregl.Popup({offset:28,maxWidth:"280px",closeButton:true})
+        .setHTML(buildPopupHTML(seg,i));
+      var marker=new maplibregl.Marker({element:el,anchor:"bottom"})
+        .setLngLat([seg.lon,seg.lat])
+        .setPopup(popup)
+        .addTo(_mlMap);
+      _mlMarkers.push(marker);
+
+      // Side trip marker
+      if(seg.sideTrip&&seg.sideTrip.lat&&seg.sideTrip.lon){
+        var stEl=makeSideMarkerEl(seg.sideTrip.name);
+        var stPopup=new maplibregl.Popup({offset:15,maxWidth:"240px",closeButton:true})
+          .setHTML('<div style="padding:10px 12px"><p style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#B9863A;margin:0 0 4px">順遊</p><strong>'+esc(seg.sideTrip.name)+'</strong><p style="font-size:12px;color:#5C6B5E;margin:4px 0 0">'+esc(seg.sideTrip.note)+'</p></div>');
+        new maplibregl.Marker({element:stEl,anchor:"center"})
+          .setLngLat([seg.sideTrip.lon,seg.sideTrip.lat])
+          .setPopup(stPopup)
+          .addTo(_mlMap);
+      }
+    });
+
+    // Legend
+    var leg="";
+    Object.keys(COUNTRY_HEX).forEach(function(c){leg+='<span class="legend-item"><span class="legend-dot" style="background:'+COUNTRY_HEX[c]+'"></span>'+c+'</span>';});
+    leg+='<span class="legend-item"><span class="legend-dot" style="background:#B9863A"></span>★ 順遊景點</span>';
+    var legEl=document.getElementById("map-legend");if(legEl)legEl.innerHTML=leg;
+  });
+
+  _mlMap.on("error",function(e){console.warn("MapLibre error",e);});
 }
 
 /* =========================================================
@@ -687,6 +817,10 @@ function updatePackingCounts(){
 /* =========================================================
    TABS
    ========================================================= */
+// Expose globally so Leaflet popup buttons can call them
+window.jumpToItinerary=jumpToItinerary;
+window.setActiveTab=function(n){setActiveTab(n);};
+
 function setActiveTab(name){
   document.querySelectorAll(".tab-btn").forEach(function(b){b.classList.toggle("active",b.getAttribute("data-tab")===name);});
   document.querySelectorAll(".tab-panel").forEach(function(p){p.classList.toggle("active",p.id==="panel-"+name);});

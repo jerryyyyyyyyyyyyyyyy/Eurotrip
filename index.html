@@ -157,6 +157,21 @@ textarea{resize:vertical;min-height:38px;}
 .btn-sm{padding:6px 12px;font-size:12.5px;}
 .btn-ghost{background:none;border-color:var(--line);color:var(--ink-soft);}
 .btn-ghost:hover{border-color:var(--austria);color:var(--austria);opacity:1;}
+/* Food section */
+.food-section{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line-strong);}
+.food-section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.food-section-label{font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#B9863A;margin:0;}
+.food-item{display:flex;gap:8px;align-items:flex-start;background:#FFFBF5;border:1px solid #EDD9B8;border-radius:8px;padding:10px 12px;margin-bottom:8px;}
+.food-item-body{flex:1;min-width:0;}
+.food-name-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.food-idx{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#B9863A;font-weight:700;flex:0 0 16px;}
+.food-link-row{display:flex;gap:6px;align-items:center;}
+.food-open-btn{appearance:none;border:1px solid #EDD9B8;background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;flex:0 0 auto;transition:background .15s;white-space:nowrap;}
+.food-open-btn:hover{background:#FFF0DC;border-color:#B9863A;}
+.food-open-btn[disabled]{opacity:.3;cursor:default;}
+.food-del-btn{appearance:none;border:none;background:none;color:#C3C9B8;cursor:pointer;font-size:17px;line-height:1;padding:2px;flex:0 0 auto;margin-top:1px;}
+.food-del-btn:hover{color:var(--warn);}
+.food-empty{font-size:13px;color:var(--ink-faint);padding:2px 0 6px;}
 /* Packing */
 .pack-cat{margin-bottom:22px;}
 .pack-cat-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
@@ -362,7 +377,10 @@ function formatDateRange(a,b){
 function isToday(a,b){var t=new Date();t.setHours(0,0,0,0);var s=parseLocalDate(a),e=parseLocalDate(b);if(a===b)return t.getTime()===s.getTime();return t>=s&&t<e;}
 function debounce(fn,wait){var t;return function(){var args=arguments;clearTimeout(t);t=setTimeout(function(){fn.apply(null,args);},wait);};}
 function serialize(obj){return JSON.stringify(obj);}
-function normalizeActivities(segs){segs.forEach(function(seg){seg.activities=(seg.activities||[]).map(function(a){return typeof a==="string"?{text:a,note:""}:a;});});}
+function normalizeActivities(segs){segs.forEach(function(seg){
+  seg.activities=(seg.activities||[]).map(function(a){return typeof a==="string"?{text:a,note:""}:a;});
+  if(!seg.food)seg.food=[];
+});}
 
 // Migration: replace old single "dolomites" entry with three separate day entries
 function migrateDolomites(segs){
@@ -623,7 +641,31 @@ function renderSegmentCard(seg,idx){
   }
   h+='<div class="field-block"><p class="field-label">備註</p>';
   h+='<textarea placeholder="航班資訊、訂位代號、備忘…" data-seg="'+seg.id+'" data-field="notes">'+esc(seg.notes)+'</textarea></div>';
-  h+='</div></div></article>';
+  h+='</div>';
+  // ── Food section ──
+  if(!isDep){
+    var foods=seg.food||[];
+    h+='<div class="food-section">';
+    h+='<div class="food-section-head">';
+    h+='<p class="food-section-label">🍽️ 美食推薦</p>';
+    h+='<button class="add-btn" data-action="add-food" data-seg="'+seg.id+'">＋ 新增</button></div>';
+    if(!foods.length){h+='<p class="food-empty">尚未新增美食 — 可貼上餐廳名稱或 Google Maps 連結</p>';}
+    foods.forEach(function(f,i){
+      var isUrl=/^https?:\/\//i.test(f.link||"");
+      h+='<div class="food-item">';
+      h+='<div class="food-item-body">';
+      h+='<div class="food-name-row"><span class="food-idx">'+(i+1)+'.</span>';
+      h+='<input type="text" value="'+esc(f.name)+'" placeholder="餐廳 / 料理名稱" data-seg="'+seg.id+'" data-field="food-name" data-idx="'+i+'"></div>';
+      h+='<div class="food-link-row">';
+      h+='<input type="text" value="'+esc(f.link)+'" placeholder="Google Maps 連結 / 備註" data-seg="'+seg.id+'" data-field="food-link" data-idx="'+i+'">';
+      h+='<button class="food-open-btn" data-action="open-food-link" data-seg="'+seg.id+'" data-idx="'+i+'"'+(isUrl?'':' disabled')+' title="開啟連結">🗺️ 開啟</button>';
+      h+='</div></div>';
+      h+='<button class="food-del-btn" data-action="remove-food" data-seg="'+seg.id+'" data-idx="'+i+'" aria-label="刪除">×</button>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  h+='</div></article>';
   return h;
 }
 function findSeg(id){for(var i=0;i<SEGMENTS.length;i++){if(SEGMENTS[i].id===id)return SEGMENTS[i];}return null;}
@@ -633,6 +675,16 @@ function handleItineraryInput(e){
   var seg=findSeg(segId),field=t.getAttribute("data-field");if(!seg||!field)return;
   if(field==="activities-text")seg.activities[parseInt(t.getAttribute("data-idx"),10)].text=t.value;
   else if(field==="activities-note")seg.activities[parseInt(t.getAttribute("data-idx"),10)].note=t.value;
+  else if(field==="food-name"){var fi=parseInt(t.getAttribute("data-idx"),10);if(seg.food[fi])seg.food[fi].name=t.value;}
+  else if(field==="food-link"){
+    var fi2=parseInt(t.getAttribute("data-idx"),10);
+    if(seg.food[fi2]){
+      seg.food[fi2].link=t.value;
+      // Live-update the open button enabled state
+      var openBtn=t.parentNode.querySelector('[data-action="open-food-link"]');
+      if(openBtn){var isUrl=/^https?:\/\//i.test(t.value);openBtn.disabled=!isUrl;}
+    }
+  }
   else setField(seg,field,t.value);
   saveItinerary();
 }
@@ -643,6 +695,21 @@ function handleItineraryClick(e){
   if(!action||!seg)return;
   if(action==="add-activity"){seg.activities.push({text:"",note:""});renderItinerary();saveItinerary();var s=document.querySelector('#card-'+segId+' .activity-list li:last-child input');if(s)s.focus();}
   else if(action==="remove-activity"){seg.activities.splice(parseInt(t.getAttribute("data-idx"),10),1);renderItinerary();saveItinerary();}
+  else if(action==="add-food"){
+    if(!seg.food)seg.food=[];
+    seg.food.push({name:"",link:""});
+    renderItinerary();saveItinerary();
+    var newFoodInput=document.querySelector('#card-'+segId+' .food-item:last-child input[data-field="food-name"]');
+    if(newFoodInput)newFoodInput.focus();
+  }
+  else if(action==="remove-food"){seg.food.splice(parseInt(t.getAttribute("data-idx"),10),1);renderItinerary();saveItinerary();}
+  else if(action==="open-food-link"){
+    var foodIdx=parseInt(t.getAttribute("data-idx"),10);
+    var foodItem=seg.food&&seg.food[foodIdx];
+    if(foodItem&&foodItem.link&&/^https?:\/\//i.test(foodItem.link)){
+      window.open(foodItem.link,"_blank","noopener,noreferrer");
+    }
+  }
 }
 
 /* =========================================================

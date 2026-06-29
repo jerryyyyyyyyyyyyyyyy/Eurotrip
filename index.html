@@ -79,6 +79,24 @@ body{background:var(--bg);color:var(--ink);font-family:'Noto Sans TC','Inter',sy
 .activity-row{display:flex;align-items:center;gap:6px;}
 .activity-note-box{display:none;margin-top:5px;width:100%;min-height:36px;font-size:12.5px;}
 .activity-item.open .activity-note-box{display:block;}
+/* Drag & time */
+.drag-handle{cursor:grab;color:var(--line-strong);font-size:15px;flex:0 0 auto;padding:0 3px;line-height:1;user-select:none;-webkit-user-select:none;}
+.drag-handle:hover{color:var(--ink-soft);}
+.drag-handle:active{cursor:grabbing;}
+.activity-item.dragging{opacity:.35;background:var(--surface-alt);}
+.activity-item.drag-over-top{border-top:2px solid var(--austria);}
+.activity-item.drag-over-bottom{border-bottom:2px solid var(--austria);}
+.time-input{width:84px;flex:0 0 84px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:6px 7px;color:var(--ink-soft);background:var(--surface-alt);border:1px solid var(--line);border-radius:6px;outline:none;}
+.time-input:focus{border-color:var(--austria);color:var(--ink);background:var(--surface);}
+/* Day timeline */
+.day-timeline{margin-top:14px;padding:12px 14px;background:var(--surface-alt);border:1px solid var(--line);border-radius:8px;}
+.tl-header{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);margin:0 0 10px;display:flex;align-items:center;gap:6px;}
+.tl-header::after{content:'';flex:1;height:1px;background:var(--line);}
+.tl-item{display:flex;align-items:flex-start;gap:10px;padding:5px 0;position:relative;}
+.tl-item:not(:last-child)::after{content:'';position:absolute;left:43px;top:20px;width:1px;bottom:-5px;background:var(--line);}
+.tl-time{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);flex:0 0 38px;padding-top:1px;}
+.tl-dot{width:9px;height:9px;border-radius:50%;background:var(--austria);flex:0 0 auto;border:2px solid var(--surface-alt);box-shadow:0 0 0 1.5px var(--austria);margin-top:3px;}
+.tl-text{font-size:13px;color:var(--ink);line-height:1.4;}
 input[type=text],input[type=number],textarea,select{font-family:'Noto Sans TC','Inter',sans-serif;font-size:13.5px;color:var(--ink);background:var(--surface-alt);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;outline:none;}
 input:focus,textarea:focus,select:focus{border-color:var(--austria);background:var(--surface);}
 textarea{resize:vertical;min-height:38px;}
@@ -378,7 +396,10 @@ function isToday(a,b){var t=new Date();t.setHours(0,0,0,0);var s=parseLocalDate(
 function debounce(fn,wait){var t;return function(){var args=arguments;clearTimeout(t);t=setTimeout(function(){fn.apply(null,args);},wait);};}
 function serialize(obj){return JSON.stringify(obj);}
 function normalizeActivities(segs){segs.forEach(function(seg){
-  seg.activities=(seg.activities||[]).map(function(a){return typeof a==="string"?{text:a,note:""}:a;});
+  seg.activities=(seg.activities||[]).map(function(a){
+    if(typeof a==="string")return{text:a,note:"",time:""};
+    return{text:a.text||"",note:a.note||"",time:a.time||""};
+  });
   if(!seg.food)seg.food=[];
 });}
 
@@ -610,6 +631,61 @@ function renderItinerary(){
   list.innerHTML=html;
   list.addEventListener("input",handleItineraryInput);
   list.addEventListener("click",handleItineraryClick);
+  attachDragHandlers(list);
+}
+
+/* ── Drag-and-drop reorder ── */
+var _dragSrcSeg=null,_dragSrcIdx=-1;
+function attachDragHandlers(list){
+  list.addEventListener("dragstart",function(e){
+    var li=e.target.closest("li.activity-item");
+    if(!li)return;
+    _dragSrcSeg=li.getAttribute("data-drag-seg");
+    _dragSrcIdx=parseInt(li.getAttribute("data-drag-idx"),10);
+    e.dataTransfer.effectAllowed="move";
+    setTimeout(function(){li.classList.add("dragging");},0);
+  });
+  list.addEventListener("dragover",function(e){
+    e.preventDefault();
+    var li=e.target.closest("li.activity-item");
+    if(!li||li.getAttribute("data-drag-seg")!==_dragSrcSeg)return;
+    list.querySelectorAll(".drag-over-top,.drag-over-bottom").forEach(function(el){el.classList.remove("drag-over-top","drag-over-bottom");});
+    var rect=li.getBoundingClientRect();
+    var mid=rect.top+rect.height/2;
+    if(e.clientY<mid)li.classList.add("drag-over-top");
+    else li.classList.add("drag-over-bottom");
+  });
+  list.addEventListener("dragleave",function(e){
+    var li=e.target.closest("li.activity-item");
+    if(li){li.classList.remove("drag-over-top","drag-over-bottom");}
+  });
+  list.addEventListener("drop",function(e){
+    e.preventDefault();
+    var li=e.target.closest("li.activity-item");
+    if(!li)return;
+    var destSeg=li.getAttribute("data-drag-seg");
+    var destIdx=parseInt(li.getAttribute("data-drag-idx"),10);
+    var insertBefore=li.classList.contains("drag-over-top");
+    li.classList.remove("drag-over-top","drag-over-bottom");
+    if(_dragSrcSeg===destSeg&&_dragSrcIdx!==destIdx){
+      var seg=findSeg(_dragSrcSeg);
+      if(seg){
+        var item=seg.activities.splice(_dragSrcIdx,1)[0];
+        var newIdx=destIdx>_dragSrcIdx?destIdx-1:destIdx;
+        if(!insertBefore)newIdx++;
+        newIdx=Math.max(0,Math.min(seg.activities.length,newIdx));
+        seg.activities.splice(newIdx,0,item);
+        renderItinerary();saveItinerary();
+      }
+    }
+    _dragSrcSeg=null;_dragSrcIdx=-1;
+  });
+  list.addEventListener("dragend",function(){
+    list.querySelectorAll(".dragging,.drag-over-top,.drag-over-bottom").forEach(function(el){
+      el.classList.remove("dragging","drag-over-top","drag-over-bottom");
+    });
+    _dragSrcSeg=null;_dragSrcIdx=-1;
+  });
 }
 function renderSegmentCard(seg,idx){
   var isDep=!!seg.isDeparture,color=COUNTRY_HEX[seg.country]||"#888";
@@ -625,12 +701,31 @@ function renderSegmentCard(seg,idx){
   h+='<div class="stop-grid">';
   h+='<div class="field-block"><p class="field-label">活動</p><ul class="activity-list">';
   seg.activities.forEach(function(a,i){
-    h+='<li class="activity-item"><div class="activity-row">';
-    h+='<input type="text" class="activity-text" value="'+esc(a.text)+'" data-seg="'+seg.id+'" data-field="activities-text" data-idx="'+i+'">';
+    h+='<li class="activity-item" draggable="true" data-drag-seg="'+seg.id+'" data-drag-idx="'+i+'">';
+    h+='<div class="activity-row">';
+    h+='<span class="drag-handle" title="拖曳排序">⠿</span>';
+    h+='<input type="time" class="time-input" value="'+esc(a.time||'')+'" data-seg="'+seg.id+'" data-field="activity-time" data-idx="'+i+'" title="設定時間">';
+    h+='<input type="text" class="activity-text" value="'+esc(a.text)+'" data-seg="'+seg.id+'" data-field="activities-text" data-idx="'+i+'" placeholder="活動名稱">';
     h+='<button class="icon-btn" data-action="remove-activity" data-seg="'+seg.id+'" data-idx="'+i+'" aria-label="移除">×</button></div>';
-    h+='<textarea class="activity-note-box" placeholder="補充說明 — 時間、地址、訂票連結…" data-seg="'+seg.id+'" data-field="activities-note" data-idx="'+i+'">'+esc(a.note)+'</textarea></li>';
+    h+='<textarea class="activity-note-box" placeholder="補充說明 — 地址、訂票連結…" data-seg="'+seg.id+'" data-field="activities-note" data-idx="'+i+'">'+esc(a.note)+'</textarea></li>';
   });
-  h+='</ul><button class="add-btn" data-action="add-activity" data-seg="'+seg.id+'">＋ 新增活動</button></div>';
+  h+='</ul><button class="add-btn" data-action="add-activity" data-seg="'+seg.id+'">＋ 新增活動</button>';
+  // Timeline — auto-shows when ≥1 activity has a time set
+  var timedActs=seg.activities.filter(function(a){return a.time&&a.text;});
+  if(timedActs.length>0){
+    var sorted=timedActs.slice().sort(function(a,b){return a.time.localeCompare(b.time);});
+    h+='<div class="day-timeline"><p class="tl-header">時間軸</p>';
+    sorted.forEach(function(a){
+      h+='<div class="tl-item"><span class="tl-time">'+esc(a.time)+'</span><span class="tl-dot"></span><span class="tl-text">'+esc(a.text)+'</span></div>';
+    });
+    // Add untimed activities at bottom
+    var untimed=seg.activities.filter(function(a){return!a.time&&a.text;});
+    if(untimed.length){
+      h+='<div class="tl-item" style="margin-top:6px"><span class="tl-time" style="color:var(--ink-faint)">—</span><span class="tl-dot" style="background:var(--ink-faint);box-shadow:0 0 0 1.5px var(--ink-faint)"></span><span class="tl-text" style="color:var(--ink-soft)">'+untimed.map(function(a){return esc(a.text);}).join(' · ')+'</span></div>';
+    }
+    h+='</div>';
+  }
+  h+='</div>';
   h+='<div class="field-block"><p class="field-label">交通方式</p>';
   h+='<input type="text" class="transport-mode" value="'+esc(seg.transport.mode)+'" placeholder="交通類型" data-seg="'+seg.id+'" data-field="transport.mode">';
   h+='<textarea placeholder="詳情" data-seg="'+seg.id+'" data-field="transport.note">'+esc(seg.transport.note)+'</textarea></div>';
@@ -675,6 +770,26 @@ function handleItineraryInput(e){
   var seg=findSeg(segId),field=t.getAttribute("data-field");if(!seg||!field)return;
   if(field==="activities-text")seg.activities[parseInt(t.getAttribute("data-idx"),10)].text=t.value;
   else if(field==="activities-note")seg.activities[parseInt(t.getAttribute("data-idx"),10)].note=t.value;
+  else if(field==="activity-time"){
+    var ai=parseInt(t.getAttribute("data-idx"),10);
+    if(seg.activities[ai])seg.activities[ai].time=t.value;
+    // Rebuild only the timeline section without full re-render
+    var cardEl=document.getElementById("card-"+segId);
+    if(cardEl){
+      var oldTl=cardEl.querySelector(".day-timeline");
+      var timedActs=seg.activities.filter(function(a){return a.time&&a.text;});
+      if(timedActs.length>0){
+        var sorted=timedActs.slice().sort(function(a,b){return a.time.localeCompare(b.time);});
+        var untimed=seg.activities.filter(function(a){return!a.time&&a.text;});
+        var tlHTML='<div class="day-timeline"><p class="tl-header">時間軸</p>';
+        sorted.forEach(function(a){tlHTML+='<div class="tl-item"><span class="tl-time">'+esc(a.time)+'</span><span class="tl-dot"></span><span class="tl-text">'+esc(a.text)+'</span></div>';});
+        if(untimed.length)tlHTML+='<div class="tl-item" style="margin-top:6px"><span class="tl-time" style="color:var(--ink-faint)">—</span><span class="tl-dot" style="background:var(--ink-faint);box-shadow:0 0 0 1.5px var(--ink-faint)"></span><span class="tl-text" style="color:var(--ink-soft)">'+untimed.map(function(a){return esc(a.text);}).join(' · ')+'</span></div>';
+        tlHTML+='</div>';
+        if(oldTl){oldTl.outerHTML=tlHTML;}
+        else{var fb=cardEl.querySelector(".field-block");if(fb)fb.insertAdjacentHTML("beforeend",tlHTML);}
+      }else if(oldTl){oldTl.remove();}
+    }
+  }
   else if(field==="food-name"){var fi=parseInt(t.getAttribute("data-idx"),10);if(seg.food[fi])seg.food[fi].name=t.value;}
   else if(field==="food-link"){
     var fi2=parseInt(t.getAttribute("data-idx"),10);

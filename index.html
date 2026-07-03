@@ -88,10 +88,15 @@ body{background:var(--bg);color:var(--ink);font-family:'Noto Sans TC','Inter',sy
 .activity-item.drag-over-bottom{border-bottom:2px solid var(--austria);}
 .time-input{width:84px;flex:0 0 84px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:6px 7px;color:var(--ink-soft);background:var(--surface-alt);border:1px solid var(--line);border-radius:6px;outline:none;}
 .time-input:focus{border-color:var(--austria);color:var(--ink);background:var(--surface);}
+.date-select{width:auto;flex:0 0 68px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:6px 4px;color:var(--switzerland);background:var(--surface-alt);border:1px solid var(--line);border-radius:6px;outline:none;font-weight:600;}
+.date-select:focus{border-color:var(--switzerland);background:var(--surface);}
 /* Day timeline */
 .day-timeline{margin-top:14px;padding:12px 14px;background:var(--surface-alt);border:1px solid var(--line);border-radius:8px;}
 .tl-header{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);margin:0 0 10px;display:flex;align-items:center;gap:6px;}
 .tl-header::after{content:'';flex:1;height:1px;background:var(--line);}
+.tl-day-group{margin-bottom:12px;}
+.tl-day-group:last-child{margin-bottom:0;}
+.tl-day-header{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;color:var(--switzerland);margin:0 0 6px;}
 .tl-item{display:flex;align-items:flex-start;gap:10px;padding:5px 0;position:relative;}
 .tl-item:not(:last-child)::after{content:'';position:absolute;left:43px;top:20px;width:1px;bottom:-5px;background:var(--line);}
 .tl-time{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);flex:0 0 38px;padding-top:1px;}
@@ -417,12 +422,28 @@ function formatDateRange(a,b){
   return MONTHS_ZH[d1.getMonth()]+d1.getDate()+"日 – "+MONTHS_ZH[d2.getMonth()]+d2.getDate()+"日";
 }
 function isToday(a,b){var t=new Date();t.setHours(0,0,0,0);var s=parseLocalDate(a),e=parseLocalDate(b);if(a===b)return t.getTime()===s.getTime();return t>=s&&t<e;}
+function pad2(n){return n<10?"0"+n:""+n;}
+function dateRangeInclusive(startStr,endStr){
+  var d1=parseLocalDate(startStr),d2=parseLocalDate(endStr),out=[];
+  var cur=new Date(d1.getTime());
+  while(cur<=d2){out.push(cur.getFullYear()+"-"+pad2(cur.getMonth()+1)+"-"+pad2(cur.getDate()));cur.setDate(cur.getDate()+1);}
+  return out;
+}
+function segDateList(seg){
+  if(seg.isDeparture||seg.start===seg.end)return[seg.start];
+  return dateRangeInclusive(seg.start,seg.end);
+}
+function shortDate(dateStr){var d=parseLocalDate(dateStr);return(d.getMonth()+1)+"/"+d.getDate();}
+function dayOrdinalLabel(seg,dateStr){
+  var list=segDateList(seg),idx=list.indexOf(dateStr);
+  return"第"+(idx===-1?1:idx+1)+"天 "+shortDate(dateStr);
+}
 function debounce(fn,wait){var t;return function(){var args=arguments;clearTimeout(t);t=setTimeout(function(){fn.apply(null,args);},wait);};}
 function serialize(obj){return JSON.stringify(obj);}
 function normalizeActivities(segs){segs.forEach(function(seg){
   seg.activities=(seg.activities||[]).map(function(a){
-    if(typeof a==="string")return{text:a,note:"",time:""};
-    return{text:a.text||"",note:a.note||"",time:a.time||""};
+    if(typeof a==="string")return{text:a,note:"",time:"",date:seg.start};
+    return{text:a.text||"",note:a.note||"",time:a.time||"",date:a.date||seg.start};
   });
   if(!seg.food)seg.food=[];
 });}
@@ -806,6 +827,7 @@ function renderItinerary(){
   var list=document.getElementById("itinerary-list");
   list.innerHTML=html;
   list.addEventListener("input",handleItineraryInput);
+  list.addEventListener("change",handleItineraryInput);
   list.addEventListener("click",handleItineraryClick);
   attachDragHandlers(list);
 }
@@ -863,6 +885,32 @@ function attachDragHandlers(list){
     _dragSrcSeg=null;_dragSrcIdx=-1;
   });
 }
+function buildTimelineHTML(seg){
+  var dateList=segDateList(seg);
+  var hasAny=false,body="";
+  dateList.forEach(function(d){
+    var dayActs=seg.activities.filter(function(a){return(a.date||seg.start)===d&&a.text;});
+    if(!dayActs.length)return;
+    hasAny=true;
+    var timed=dayActs.filter(function(a){return a.time;}).sort(function(a,b){return a.time.localeCompare(b.time);});
+    var untimed=dayActs.filter(function(a){return!a.time;});
+    body+='<div class="tl-day-group">';
+    if(dateList.length>1)body+='<p class="tl-day-header">'+dayOrdinalLabel(seg,d)+'</p>';
+    timed.forEach(function(a){body+='<div class="tl-item"><span class="tl-time">'+esc(a.time)+'</span><span class="tl-dot"></span><span class="tl-text">'+esc(a.text)+'</span></div>';});
+    if(untimed.length)body+='<div class="tl-item" style="margin-top:6px"><span class="tl-time" style="color:var(--ink-faint)">—</span><span class="tl-dot" style="background:var(--ink-faint);box-shadow:0 0 0 1.5px var(--ink-faint)"></span><span class="tl-text" style="color:var(--ink-soft)">'+untimed.map(function(a){return esc(a.text);}).join(' · ')+'</span></div>';
+    body+='</div>';
+  });
+  if(!hasAny)return"";
+  return'<div class="day-timeline"><p class="tl-header">時間軸</p>'+body+'</div>';
+}
+function refreshTimeline(segId,seg){
+  var cardEl=document.getElementById("card-"+segId);
+  if(!cardEl)return;
+  var oldTl=cardEl.querySelector(".day-timeline");
+  var newHTML=buildTimelineHTML(seg);
+  if(oldTl){if(newHTML)oldTl.outerHTML=newHTML;else oldTl.remove();}
+  else if(newHTML){var fb=cardEl.querySelector(".field-block");if(fb)fb.insertAdjacentHTML("beforeend",newHTML);}
+}
 function renderSegmentCard(seg,idx){
   var isDep=!!seg.isDeparture,color=COUNTRY_HEX[seg.country]||"#888";
   var nightsLabel=isDep?"回程出發":(seg.nights+"晚");
@@ -876,31 +924,23 @@ function renderSegmentCard(seg,idx){
   if(seg.sideTrip)h+='<div class="side-trip"><span class="side-trip-label">順遊</span><strong>'+esc(seg.sideTrip.name)+'</strong> — '+esc(seg.sideTrip.note)+'</div>';
   h+='<div class="stop-grid">';
   h+='<div class="field-block"><p class="field-label">活動</p><ul class="activity-list">';
+  var dateList=segDateList(seg),showDateSelect=dateList.length>1;
   seg.activities.forEach(function(a,i){
     h+='<li class="activity-item" draggable="true" data-drag-seg="'+seg.id+'" data-drag-idx="'+i+'">';
     h+='<div class="activity-row">';
     h+='<span class="drag-handle" title="拖曳排序">⠿</span>';
+    if(showDateSelect){
+      h+='<select class="date-select" data-seg="'+seg.id+'" data-field="activity-date" data-idx="'+i+'" title="選擇日期">';
+      dateList.forEach(function(d){h+='<option value="'+d+'"'+((a.date||seg.start)===d?' selected':'')+'>'+shortDate(d)+'</option>';});
+      h+='</select>';
+    }
     h+='<input type="time" class="time-input" value="'+esc(a.time||'')+'" data-seg="'+seg.id+'" data-field="activity-time" data-idx="'+i+'" title="設定時間">';
     h+='<input type="text" class="activity-text" value="'+esc(a.text)+'" data-seg="'+seg.id+'" data-field="activities-text" data-idx="'+i+'" placeholder="活動名稱">';
     h+='<button class="icon-btn" data-action="remove-activity" data-seg="'+seg.id+'" data-idx="'+i+'" aria-label="移除">×</button></div>';
     h+='<textarea class="activity-note-box" placeholder="補充說明 — 地址、訂票連結…" data-seg="'+seg.id+'" data-field="activities-note" data-idx="'+i+'">'+esc(a.note)+'</textarea></li>';
   });
   h+='</ul><button class="add-btn" data-action="add-activity" data-seg="'+seg.id+'">＋ 新增活動</button>';
-  // Timeline — auto-shows when ≥1 activity has a time set
-  var timedActs=seg.activities.filter(function(a){return a.time&&a.text;});
-  if(timedActs.length>0){
-    var sorted=timedActs.slice().sort(function(a,b){return a.time.localeCompare(b.time);});
-    h+='<div class="day-timeline"><p class="tl-header">時間軸</p>';
-    sorted.forEach(function(a){
-      h+='<div class="tl-item"><span class="tl-time">'+esc(a.time)+'</span><span class="tl-dot"></span><span class="tl-text">'+esc(a.text)+'</span></div>';
-    });
-    // Add untimed activities at bottom
-    var untimed=seg.activities.filter(function(a){return!a.time&&a.text;});
-    if(untimed.length){
-      h+='<div class="tl-item" style="margin-top:6px"><span class="tl-time" style="color:var(--ink-faint)">—</span><span class="tl-dot" style="background:var(--ink-faint);box-shadow:0 0 0 1.5px var(--ink-faint)"></span><span class="tl-text" style="color:var(--ink-soft)">'+untimed.map(function(a){return esc(a.text);}).join(' · ')+'</span></div>';
-    }
-    h+='</div>';
-  }
+  h+=buildTimelineHTML(seg);
   h+='</div>';
   h+='<div class="field-block"><p class="field-label">交通方式</p>';
   h+='<input type="text" class="transport-mode" value="'+esc(seg.transport.mode)+'" placeholder="交通類型" data-seg="'+seg.id+'" data-field="transport.mode">';
@@ -949,22 +989,12 @@ function handleItineraryInput(e){
   else if(field==="activity-time"){
     var ai=parseInt(t.getAttribute("data-idx"),10);
     if(seg.activities[ai])seg.activities[ai].time=t.value;
-    // Rebuild only the timeline section without full re-render
-    var cardEl=document.getElementById("card-"+segId);
-    if(cardEl){
-      var oldTl=cardEl.querySelector(".day-timeline");
-      var timedActs=seg.activities.filter(function(a){return a.time&&a.text;});
-      if(timedActs.length>0){
-        var sorted=timedActs.slice().sort(function(a,b){return a.time.localeCompare(b.time);});
-        var untimed=seg.activities.filter(function(a){return!a.time&&a.text;});
-        var tlHTML='<div class="day-timeline"><p class="tl-header">時間軸</p>';
-        sorted.forEach(function(a){tlHTML+='<div class="tl-item"><span class="tl-time">'+esc(a.time)+'</span><span class="tl-dot"></span><span class="tl-text">'+esc(a.text)+'</span></div>';});
-        if(untimed.length)tlHTML+='<div class="tl-item" style="margin-top:6px"><span class="tl-time" style="color:var(--ink-faint)">—</span><span class="tl-dot" style="background:var(--ink-faint);box-shadow:0 0 0 1.5px var(--ink-faint)"></span><span class="tl-text" style="color:var(--ink-soft)">'+untimed.map(function(a){return esc(a.text);}).join(' · ')+'</span></div>';
-        tlHTML+='</div>';
-        if(oldTl){oldTl.outerHTML=tlHTML;}
-        else{var fb=cardEl.querySelector(".field-block");if(fb)fb.insertAdjacentHTML("beforeend",tlHTML);}
-      }else if(oldTl){oldTl.remove();}
-    }
+    refreshTimeline(segId,seg);
+  }
+  else if(field==="activity-date"){
+    var adi=parseInt(t.getAttribute("data-idx"),10);
+    if(seg.activities[adi])seg.activities[adi].date=t.value;
+    refreshTimeline(segId,seg);
   }
   else if(field==="food-name"){var fi=parseInt(t.getAttribute("data-idx"),10);if(seg.food[fi])seg.food[fi].name=t.value;}
   else if(field==="food-link"){
@@ -984,7 +1014,7 @@ function handleItineraryClick(e){
   if(t.classList&&t.classList.contains("activity-text")){var li=t.closest(".activity-item");if(li)li.classList.add("open");return;}
   var action=t.getAttribute("data-action"),segId=t.getAttribute("data-seg"),seg=findSeg(segId);
   if(!action||!seg)return;
-  if(action==="add-activity"){seg.activities.push({text:"",note:""});renderItinerary();saveItinerary();var s=document.querySelector('#card-'+segId+' .activity-list li:last-child input');if(s)s.focus();}
+  if(action==="add-activity"){seg.activities.push({text:"",note:"",time:"",date:segDateList(seg)[0]});renderItinerary();saveItinerary();var s=document.querySelector('#card-'+segId+' .activity-list li:last-child input');if(s)s.focus();}
   else if(action==="remove-activity"){seg.activities.splice(parseInt(t.getAttribute("data-idx"),10),1);renderItinerary();saveItinerary();}
   else if(action==="add-food"){
     if(!seg.food)seg.food=[];

@@ -76,9 +76,31 @@ body{background:var(--bg);color:var(--ink);font-family:'Noto Sans TC','Inter',sy
 .field-label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.05em;color:var(--ink-faint);margin:0 0 6px;}
 .activity-list{list-style:none;margin:0;padding:0;}
 .activity-list li{margin-bottom:6px;}
+.activity-item{background:#F4F8F3;border:1px solid #DAE6D6;border-radius:8px;padding:8px 9px;}
+.activity-expand{display:none;margin-top:8px;padding-top:8px;border-top:1px solid #DAE6D6;}
+.activity-item.open .activity-expand{display:block;}
+.activity-item:not(.open) .activity-row{cursor:pointer;}
+.activity-photo-row{display:flex;margin-bottom:8px;}
+.activity-photo-wrap{flex:0 0 auto;width:84px;height:84px;border-radius:8px;position:relative;cursor:pointer;}
+.activity-photo-wrap img{width:100%;height:100%;object-fit:cover;display:block;border-radius:8px;}
+.activity-photo-placeholder{width:100%;height:100%;border:1.5px dashed #B9C7AE;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#EAF3E8;color:#7A9270;gap:2px;transition:background .15s,border-color .15s;}
+.activity-photo-placeholder:hover{background:#E0EEDC;border-color:var(--austria);}
+.activity-photo-icon{font-size:20px;line-height:1;}
+.activity-photo-label{font-size:9px;font-family:'IBM Plex Mono',monospace;line-height:1.2;}
+.activity-photo-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:rgba(30,42,34,0.72);color:#fff;border:1.5px solid #fff;font-size:12px;line-height:1;text-align:center;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
+.activity-photo-remove:hover{background:var(--warn);}
+.activity-photo-input{display:none;}
 .activity-row{display:flex;align-items:center;gap:6px;}
-.activity-note-box{display:none;margin-top:5px;width:100%;min-height:36px;font-size:12.5px;}
-.activity-item.open .activity-note-box{display:block;}
+.has-info-dot{width:6px;height:6px;border-radius:50%;background:var(--switzerland);flex:0 0 auto;}
+.activity-item.open .has-info-dot{background:var(--austria);}
+.activity-note-box{width:100%;min-height:44px;font-size:12.5px;}
+.activity-link-row{display:flex;gap:6px;align-items:center;margin-bottom:8px;}
+.activity-open-btn{appearance:none;border:1px solid #DAE6D6;background:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px;flex:0 0 auto;transition:background .15s;white-space:nowrap;}
+.activity-open-btn:hover{background:#EAF3E8;border-color:var(--austria);}
+.activity-open-btn[disabled]{opacity:.3;cursor:default;}
+@media (max-width:480px){
+  .activity-photo-wrap{width:72px;height:72px;}
+}
 /* Drag & time */
 .drag-handle{cursor:grab;color:var(--line-strong);font-size:15px;flex:0 0 auto;padding:0 3px;line-height:1;user-select:none;-webkit-user-select:none;}
 .drag-handle:hover{color:var(--ink-soft);}
@@ -103,6 +125,14 @@ body{background:var(--bg);color:var(--ink);font-family:'Noto Sans TC','Inter',sy
 .tl-dot{width:9px;height:9px;border-radius:50%;background:var(--austria);flex:0 0 auto;border:2px solid var(--surface-alt);box-shadow:0 0 0 1.5px var(--austria);margin-top:3px;}
 .tl-text{font-size:13px;color:var(--ink);line-height:1.4;}
 input[type=text],input[type=number],textarea,select{font-family:'Noto Sans TC','Inter',sans-serif;font-size:13.5px;color:var(--ink);background:var(--surface-alt);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;outline:none;}
+/* iOS Safari zooms the page on focus if input font-size < 16px — force 16px on touch/narrow devices */
+@media (max-width:820px), (pointer:coarse){
+  input[type=text],input[type=number],input[type=time],input[type=date],textarea,select{font-size:16px;padding:8px 9px;}
+  .time-input{width:98px;flex:0 0 98px;}
+  .date-select{flex:0 0 78px;}
+  .icon-btn{font-size:19px;padding:4px 6px;}
+  .drag-handle{font-size:18px;padding:2px 5px;}
+}
 input:focus,textarea:focus,select:focus{border-color:var(--austria);background:var(--surface);}
 textarea{resize:vertical;min-height:38px;}
 .transport-mode{margin-bottom:6px;font-weight:600;}
@@ -133,6 +163,8 @@ textarea{resize:vertical;min-height:38px;}
 .popup-weather-text{font-size:12px;color:var(--ink);}
 .popup-weather-text .lo{color:var(--ink-faint);}
 #ml-map{height:560px;border-radius:8px;}
+@media (max-width:820px){ #ml-map{height:400px;} }
+@media (max-width:480px){ #ml-map{height:320px;} }
 .map-legend{display:flex;gap:14px;flex-wrap:wrap;padding:14px 4px 0;}
 /* MapLibre popup overrides */
 .maplibregl-popup-content{padding:0;border-radius:10px;overflow:hidden;box-shadow:0 4px 16px rgba(30,42,34,.15);border:1px solid #DBDFD2;width:270px;}
@@ -331,48 +363,48 @@ function setSyncStatus(state,msg){
    ========================================================= */
 var DEFAULT_SEGMENTS=[
   {id:"vienna1",city:"維也納",country:"奧地利",start:"2026-07-14",end:"2026-07-15",nights:1,lat:48.2082,lon:16.3738,elevation:151,
-   activities:[{text:"史蒂芬大教堂與舊城區漫步",note:""},{text:"熊布朗宮殿與花園",note:""},{text:"中央咖啡館",note:""}],
+   activities:[{text:"史蒂芬大教堂與舊城區漫步",note:"",link:"https://www.google.com/maps/search/?api=1&query=St.%20Stephen%27s%20Cathedral%20Vienna&query_place_id=ChIJz-w_Ip8HbUcRWTHc-vNXlxc"},{text:"熊布朗宮殿與花園",note:"",link:"https://www.google.com/maps/search/?api=1&query=Sch%C3%B6nbrunn%20Palace%20Vienna&query_place_id=ChIJv3zAHAmobUcRyYvq5F26aU4"},{text:"中央咖啡館",note:"",link:"https://www.google.com/maps/search/?api=1&query=Caf%C3%A9%20Central%20Vienna&query_place_id=ChIJLzsM95cHbUcRSS5C-z-H-ls"}],
    transport:{mode:"抵達",note:"飛抵維也納機場（VIE）"},lodging:{name:"",cost:""},notes:""},
   {id:"hallstatt",city:"哈爾施塔特",country:"奧地利",start:"2026-07-15",end:"2026-07-16",nights:1,lat:47.5622,lon:13.6493,elevation:511,
-   activities:[{text:"湖畔村落散步",note:""},{text:"天空步道眺望台",note:""},{text:"鹽礦坑導覽",note:""}],
+   activities:[{text:"湖畔村落散步",note:"",link:"https://www.google.com/maps/search/?api=1&query=Hallstatt%20Austria"},{text:"天空步道眺望台",note:"",link:"https://www.google.com/maps/search/?api=1&query=Hallstatt%20Skywalk&query_place_id=ChIJq7oizVA3cUcR4irrtZxljUk"},{text:"鹽礦坑導覽",note:"",link:"https://www.google.com/maps/search/?api=1&query=Salzwelten%20Hallstatt&query_place_id=ChIJP9hpD5I3cUcRac5Ow7lolII"}],
    transport:{mode:"火車＋渡輪",note:"約3.5小時，經Attnang-Puchheim後搭渡輪"},lodging:{name:"",cost:""},notes:""},
   {id:"munich",city:"慕尼黑",country:"德國",start:"2026-07-16",end:"2026-07-18",nights:2,lat:48.1351,lon:11.5820,elevation:519,
-   activities:[{text:"瑪利亞廣場與格洛肯斯皮爾鐘琴",note:""},{text:"英式花園",note:""},{text:"維克圖亞連市場",note:""}],
+   activities:[{text:"瑪利亞廣場與格洛肯斯皮爾鐘琴",note:"",link:"https://www.google.com/maps/search/?api=1&query=Marienplatz%20Munich&query_place_id=ChIJHble2Ip1nkcRe1Yle_yFdOI"},{text:"英式花園",note:"",link:"https://www.google.com/maps/search/?api=1&query=English%20Garden%20Munich&query_place_id=ChIJayv4lZd1nkcR0e_vfGLfm8k"},{text:"維克圖亞連市場",note:"",link:"https://www.google.com/maps/search/?api=1&query=Viktualienmarkt%20Munich&query_place_id=ChIJ39dKkYp1nkcRg73GGkKlCQE"}],
    transport:{mode:"火車",note:"從哈爾施塔特經薩爾斯堡，約4小時"},lodging:{name:"",cost:""},notes:"",
    sideTrip:{name:"新天鵝堡",note:"從菲森出發日歸，火車＋公車單程約2小時，請提前訂票",lat:47.5576,lon:10.7498}},
   {id:"zurich",city:"蘇黎世",country:"瑞士",start:"2026-07-18",end:"2026-07-19",nights:1,lat:47.3769,lon:8.5417,elevation:408,
-   activities:[{text:"舊城區與湖畔漫步",note:""},{text:"班霍夫大街",note:""},{text:"林登霍夫眺望點",note:""}],
+   activities:[{text:"舊城區與湖畔漫步",note:"",link:"https://www.google.com/maps/search/?api=1&query=Seepromenade%20Zurich&query_place_id=ChIJPbEkxOEJkEcRhKwJoY3d0M8"},{text:"班霍夫大街",note:"",link:"https://www.google.com/maps/search/?api=1&query=Bahnhofstrasse%20Zurich&query_place_id=ChIJlXK8LAcKkEcRZfxW7ORoH84"},{text:"林登霍夫眺望點",note:"",link:"https://www.google.com/maps/search/?api=1&query=Lindenhof%20Zurich&query_place_id=ChIJx0YwJQALkEcR2GX0zSltpDI"}],
    transport:{mode:"火車",note:"從慕尼黑搭EC列車，約3.5–4小時"},lodging:{name:"",cost:""},notes:""},
   {id:"luzern",city:"盧塞恩",country:"瑞士",start:"2026-07-19",end:"2026-07-21",nights:2,lat:47.0502,lon:8.3093,elevation:436,
-   activities:[{text:"教堂橋與舊城區",note:""},{text:"皮拉圖斯山或瑞吉山日歸",note:""},{text:"琉森湖遊船",note:""}],
+   activities:[{text:"教堂橋與舊城區",note:"",link:"https://www.google.com/maps/search/?api=1&query=Chapel%20Bridge%20Luzern&query_place_id=ChIJ5cLMMJ_7j0cRNw7SwdMQsCA"},{text:"皮拉圖斯山或瑞吉山日歸",note:"",link:"https://www.google.com/maps/search/?api=1&query=Mount%20Pilatus&query_place_id=ChIJPbgAuhTwj0cREOvEQPqZL3Q"},{text:"琉森湖遊船",note:"",link:"https://www.google.com/maps/search/?api=1&query=Lake%20Lucerne%20Navigation%20SGV&query_place_id=ChIJES3LD737j0cRX3XTqg6QLk8"}],
    transport:{mode:"火車",note:"從蘇黎世約45分鐘"},lodging:{name:"",cost:""},notes:""},
   {id:"grindelwald",city:"格林德瓦",country:"瑞士",start:"2026-07-21",end:"2026-07-23",nights:2,lat:46.6244,lon:8.0414,elevation:1034,
-   activities:[{text:"少女峰 — 歐洲之巔",note:""},{text:"費爾斯特崖壁步道",note:""},{text:"艾格爾峰步道健行",note:""}],
+   activities:[{text:"少女峰 — 歐洲之巔",note:"",link:"https://www.google.com/maps/search/?api=1&query=Jungfraujoch%20Top%20of%20Europe&query_place_id=ChIJJ7nLTSeej0cR2W4949rfTfc"},{text:"費爾斯特崖壁步道",note:"",link:"https://www.google.com/maps/search/?api=1&query=First%20Cliff%20Walk%20Grindelwald&query_place_id=ChIJF8F0ZH6bj0cR4W7tAylGNRQ"},{text:"艾格爾峰步道健行",note:"",link:"https://www.google.com/maps/search/?api=1&query=Eiger%20Trail%20Grindelwald&query_place_id=ChIJ40bwXhCfj0cRoboSY9dMSu8"}],
    transport:{mode:"火車",note:"經因特拉肯，風景路線約2小時"},lodging:{name:"",cost:""},notes:""},
   {id:"zermatt",city:"策馬特",country:"瑞士",start:"2026-07-23",end:"2026-07-25",nights:2,lat:46.0207,lon:7.7491,elevation:1608,
-   activities:[{text:"格爾納格拉特鐵路 — 馬特洪峰景觀",note:""},{text:"五湖健行",note:""},{text:"無車村落漫步",note:""}],
+   activities:[{text:"格爾納格拉特鐵路 — 馬特洪峰景觀",note:"",link:"https://www.google.com/maps/search/?api=1&query=Gornergrat%20Railway%20Zermatt&query_place_id=ChIJZzoi-HU2j0cRnkCC5sgBTwU"},{text:"五湖健行",note:"",link:"https://www.google.com/maps/search/?api=1&query=5%20Lakes%20Walk%20Zermatt&query_place_id=ChIJ2-PO1nwzj0cR0rLFltRpU7Y"},{text:"無車村落漫步",note:"",link:"https://www.google.com/maps/search/?api=1&query=Zermatt%20Switzerland"}],
    transport:{mode:"火車",note:"經Spiez/Visp約3.5–4小時，停車於Täsch"},lodging:{name:"",cost:""},notes:""},
   {id:"milan",city:"米蘭",country:"義大利",start:"2026-07-25",end:"2026-07-26",nights:1,lat:45.4642,lon:9.1900,elevation:120,
-   activities:[{text:"米蘭大教堂與屋頂漫步",note:""},{text:"艾曼紐二世拱廊",note:""},{text:"最後的晚餐（需提前訂票）",note:""}],
+   activities:[{text:"米蘭大教堂與屋頂漫步",note:"",link:"https://www.google.com/maps/search/?api=1&query=Duomo%20di%20Milano&query_place_id=ChIJoTZGw67GhkcREy4aECdOf6s"},{text:"艾曼紐二世拱廊",note:"",link:"https://www.google.com/maps/search/?api=1&query=Galleria%20Vittorio%20Emanuele%20II%20Milan&query_place_id=ChIJw7aG_QY1eUcRFtQJWKmcCyc"},{text:"最後的晚餐（需提前訂票）",note:"",link:"https://www.google.com/maps/search/?api=1&query=Leonardo%27s%20Last%20Supper%20Museum%20Milan&query_place_id=ChIJ76jHT1rBhkcRhv_9lZv4uG0"}],
    transport:{mode:"火車",note:"從策馬特經Brig，約4–5小時"},lodging:{name:"",cost:""},notes:"",
    sideTrip:{name:"比薩",note:"前往佛羅倫斯途中順遊，從米蘭搭火車約3小時",lat:43.7229,lon:10.3966}},
   {id:"florence",city:"佛羅倫斯",country:"義大利",start:"2026-07-26",end:"2026-07-28",nights:2,lat:43.7696,lon:11.2558,elevation:50,
-   activities:[{text:"大教堂與布魯內萊斯基圓頂",note:""},{text:"烏菲茲美術館",note:""},{text:"舊橋夕陽美景",note:""}],
+   activities:[{text:"大教堂與布魯內萊斯基圓頂",note:"",link:"https://www.google.com/maps/search/?api=1&query=Cathedral%20of%20Santa%20Maria%20del%20Fiore%20Florence&query_place_id=ChIJ9S_ivwNUKhMR9fGqh4RDkVU"},{text:"烏菲茲美術館",note:"",link:"https://www.google.com/maps/search/?api=1&query=Uffizi%20Galleries%20Florence&query_place_id=ChIJgZDFjQBUKhMRzcTwm8i33s0"},{text:"舊橋夕陽美景",note:"",link:"https://www.google.com/maps/search/?api=1&query=Ponte%20Vecchio%20Florence&query_place_id=ChIJZ7bcoqpWKhMR6ALnMOgKMUA"}],
    transport:{mode:"火車",note:"從比薩約1小時"},lodging:{name:"",cost:""},notes:""},
   {id:"venice",city:"威尼斯",country:"義大利",start:"2026-07-28",end:"2026-07-30",nights:2,lat:45.4408,lon:12.3155,elevation:2,
-   activities:[{text:"聖馬可廣場與大教堂",note:""},{text:"大運河水上巴士之旅",note:""},{text:"穆拉諾與布拉諾島",note:""}],
+   activities:[{text:"聖馬可廣場與大教堂",note:"",link:"https://www.google.com/maps/search/?api=1&query=Saint%20Mark%27s%20Basilica%20Venice&query_place_id=ChIJv2xSZNexfkcRBaKsgyfVEgo"},{text:"大運河水上巴士之旅",note:"",link:"https://www.google.com/maps/search/?api=1&query=Grand%20Canal%20Venice&query_place_id=ChIJwbaAm8-xfkcRCGBhBMH0yXs"},{text:"穆拉諾與布拉諾島",note:"",link:"https://www.google.com/maps/search/?api=1&query=Murano%20Venice&query_place_id=ChIJNfOTF_6xfkcRs_TjdsBP1gA"}],
    transport:{mode:"火車",note:"從佛羅倫斯約2小時"},lodging:{name:"",cost:""},notes:""},
   {id:"dolomites1",city:"多落米地 Day 1",country:"義大利",start:"2026-07-30",end:"2026-07-31",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
-   activities:[{text:"三峰岩健行（Tre Cime di Lavaredo）",note:""}],
+   activities:[{text:"三峰岩健行（Tre Cime di Lavaredo）",note:"",link:"https://www.google.com/maps/search/?api=1&query=Tre%20Cime%20di%20Lavaredo&query_place_id=ChIJv9cthasyeEcRnn62kB3dxgE"}],
    transport:{mode:"建議租車",note:"從威尼斯約3小時，多洛米蒂火車班次有限"},lodging:{name:"",cost:""},notes:""},
   {id:"dolomites2",city:"多落米地 Day 2",country:"義大利",start:"2026-07-31",end:"2026-08-01",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
-   activities:[{text:"布萊爾湖（Lago di Braies）",note:""}],
+   activities:[{text:"布萊爾湖（Lago di Braies）",note:"",link:"https://www.google.com/maps/search/?api=1&query=Pragser%20Wildsee%20Lago%20di%20Braies&query_place_id=ChIJ5-06In4veEcR9cJfTfG0Lb0"}],
    transport:{mode:"租車移動",note:"在多洛米蒂區域內自駕"},lodging:{name:"",cost:""},notes:""},
   {id:"dolomites3",city:"多落米地 Day 3",country:"義大利",start:"2026-08-01",end:"2026-08-02",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
-   activities:[{text:"加烏山口景觀公路（Passo Giau）",note:""}],
+   activities:[{text:"加烏山口景觀公路（Passo Giau）",note:"",link:"https://www.google.com/maps/search/?api=1&query=Giau%20Pass&query_place_id=ChIJb3K03chJeEcRwTNb2IiHM24"}],
    transport:{mode:"租車移動",note:"在多洛米蒂區域內自駕"},lodging:{name:"",cost:""},notes:""},
   {id:"villach",city:"菲拉赫",country:"奧地利",start:"2026-08-02",end:"2026-08-03",nights:1,lat:46.6111,lon:13.8558,elevation:501,
-   activities:[{text:"沃爾特湖",note:""},{text:"舊城區漫步",note:""}],
+   activities:[{text:"沃爾特湖",note:"",link:"https://www.google.com/maps/search/?api=1&query=W%C3%B6rthersee&query_place_id=ChIJQU5emG53cEcRgWtf-TzVBS0"},{text:"舊城區漫步",note:"",link:"https://www.google.com/maps/search/?api=1&query=Villach%20Old%20Town&query_place_id=ChIJYWUakomBcEcR-ptO0PpTUWI"}],
    transport:{mode:"汽車／巴士",note:"從多洛米蒂約2.5–3小時"},lodging:{name:"",cost:""},notes:""},
   {id:"vienna2",city:"維也納",country:"奧地利",start:"2026-08-03",end:"2026-08-03",nights:0,lat:48.2082,lon:16.3738,elevation:151,
    activities:[],isDeparture:true,
@@ -442,26 +474,41 @@ function debounce(fn,wait){var t;return function(){var args=arguments;clearTimeo
 function serialize(obj){return JSON.stringify(obj);}
 function normalizeActivities(segs){segs.forEach(function(seg){
   seg.activities=(seg.activities||[]).map(function(a){
-    if(typeof a==="string")return{text:a,note:"",time:"",date:seg.start};
-    return{text:a.text||"",note:a.note||"",time:a.time||"",date:a.date||seg.start};
+    if(typeof a==="string")return{text:a,note:"",time:"",date:seg.start,link:"",photo:""};
+    return{text:a.text||"",note:a.note||"",time:a.time||"",date:a.date||seg.start,link:a.link||"",photo:a.photo||""};
   });
   if(!seg.food)seg.food=[];
 });}
 
 // Migration: replace old single "dolomites" entry with three separate day entries
+// Attraction link + historical fact backfill database (researched via Google Places)
+var ATTRACTION_LINK_DB={"史蒂芬大教堂與舊城區漫步": "https://www.google.com/maps/search/?api=1&query=St.%20Stephen%27s%20Cathedral%20Vienna&query_place_id=ChIJz-w_Ip8HbUcRWTHc-vNXlxc", "熊布朗宮殿與花園": "https://www.google.com/maps/search/?api=1&query=Sch%C3%B6nbrunn%20Palace%20Vienna&query_place_id=ChIJv3zAHAmobUcRyYvq5F26aU4", "中央咖啡館": "https://www.google.com/maps/search/?api=1&query=Caf%C3%A9%20Central%20Vienna&query_place_id=ChIJLzsM95cHbUcRSS5C-z-H-ls", "湖畔村落散步": "https://www.google.com/maps/search/?api=1&query=Hallstatt%20Austria", "天空步道眺望台": "https://www.google.com/maps/search/?api=1&query=Hallstatt%20Skywalk&query_place_id=ChIJq7oizVA3cUcR4irrtZxljUk", "鹽礦坑導覽": "https://www.google.com/maps/search/?api=1&query=Salzwelten%20Hallstatt&query_place_id=ChIJP9hpD5I3cUcRac5Ow7lolII", "瑪利亞廣場與格洛肯斯皮爾鐘琴": "https://www.google.com/maps/search/?api=1&query=Marienplatz%20Munich&query_place_id=ChIJHble2Ip1nkcRe1Yle_yFdOI", "英式花園": "https://www.google.com/maps/search/?api=1&query=English%20Garden%20Munich&query_place_id=ChIJayv4lZd1nkcR0e_vfGLfm8k", "維克圖亞連市場": "https://www.google.com/maps/search/?api=1&query=Viktualienmarkt%20Munich&query_place_id=ChIJ39dKkYp1nkcRg73GGkKlCQE", "舊城區與湖畔漫步": "https://www.google.com/maps/search/?api=1&query=Seepromenade%20Zurich&query_place_id=ChIJPbEkxOEJkEcRhKwJoY3d0M8", "班霍夫大街": "https://www.google.com/maps/search/?api=1&query=Bahnhofstrasse%20Zurich&query_place_id=ChIJlXK8LAcKkEcRZfxW7ORoH84", "林登霍夫眺望點": "https://www.google.com/maps/search/?api=1&query=Lindenhof%20Zurich&query_place_id=ChIJx0YwJQALkEcR2GX0zSltpDI", "教堂橋與舊城區": "https://www.google.com/maps/search/?api=1&query=Chapel%20Bridge%20Luzern&query_place_id=ChIJ5cLMMJ_7j0cRNw7SwdMQsCA", "皮拉圖斯山或瑞吉山日歸": "https://www.google.com/maps/search/?api=1&query=Mount%20Pilatus&query_place_id=ChIJPbgAuhTwj0cREOvEQPqZL3Q", "琉森湖遊船": "https://www.google.com/maps/search/?api=1&query=Lake%20Lucerne%20Navigation%20SGV&query_place_id=ChIJES3LD737j0cRX3XTqg6QLk8", "少女峰 — 歐洲之巔": "https://www.google.com/maps/search/?api=1&query=Jungfraujoch%20Top%20of%20Europe&query_place_id=ChIJJ7nLTSeej0cR2W4949rfTfc", "費爾斯特崖壁步道": "https://www.google.com/maps/search/?api=1&query=First%20Cliff%20Walk%20Grindelwald&query_place_id=ChIJF8F0ZH6bj0cR4W7tAylGNRQ", "艾格爾峰步道健行": "https://www.google.com/maps/search/?api=1&query=Eiger%20Trail%20Grindelwald&query_place_id=ChIJ40bwXhCfj0cRoboSY9dMSu8", "格爾納格拉特鐵路 — 馬特洪峰景觀": "https://www.google.com/maps/search/?api=1&query=Gornergrat%20Railway%20Zermatt&query_place_id=ChIJZzoi-HU2j0cRnkCC5sgBTwU", "五湖健行": "https://www.google.com/maps/search/?api=1&query=5%20Lakes%20Walk%20Zermatt&query_place_id=ChIJ2-PO1nwzj0cR0rLFltRpU7Y", "無車村落漫步": "https://www.google.com/maps/search/?api=1&query=Zermatt%20Switzerland", "米蘭大教堂與屋頂漫步": "https://www.google.com/maps/search/?api=1&query=Duomo%20di%20Milano&query_place_id=ChIJoTZGw67GhkcREy4aECdOf6s", "艾曼紐二世拱廊": "https://www.google.com/maps/search/?api=1&query=Galleria%20Vittorio%20Emanuele%20II%20Milan&query_place_id=ChIJw7aG_QY1eUcRFtQJWKmcCyc", "最後的晚餐（需提前訂票）": "https://www.google.com/maps/search/?api=1&query=Leonardo%27s%20Last%20Supper%20Museum%20Milan&query_place_id=ChIJ76jHT1rBhkcRhv_9lZv4uG0", "大教堂與布魯內萊斯基圓頂": "https://www.google.com/maps/search/?api=1&query=Cathedral%20of%20Santa%20Maria%20del%20Fiore%20Florence&query_place_id=ChIJ9S_ivwNUKhMR9fGqh4RDkVU", "烏菲茲美術館": "https://www.google.com/maps/search/?api=1&query=Uffizi%20Galleries%20Florence&query_place_id=ChIJgZDFjQBUKhMRzcTwm8i33s0", "舊橋夕陽美景": "https://www.google.com/maps/search/?api=1&query=Ponte%20Vecchio%20Florence&query_place_id=ChIJZ7bcoqpWKhMR6ALnMOgKMUA", "聖馬可廣場與大教堂": "https://www.google.com/maps/search/?api=1&query=Saint%20Mark%27s%20Basilica%20Venice&query_place_id=ChIJv2xSZNexfkcRBaKsgyfVEgo", "大運河水上巴士之旅": "https://www.google.com/maps/search/?api=1&query=Grand%20Canal%20Venice&query_place_id=ChIJwbaAm8-xfkcRCGBhBMH0yXs", "穆拉諾與布拉諾島": "https://www.google.com/maps/search/?api=1&query=Murano%20Venice&query_place_id=ChIJNfOTF_6xfkcRs_TjdsBP1gA", "三峰岩健行（Tre Cime di Lavaredo）": "https://www.google.com/maps/search/?api=1&query=Tre%20Cime%20di%20Lavaredo&query_place_id=ChIJv9cthasyeEcRnn62kB3dxgE", "布萊爾湖（Lago di Braies）": "https://www.google.com/maps/search/?api=1&query=Pragser%20Wildsee%20Lago%20di%20Braies&query_place_id=ChIJ5-06In4veEcR9cJfTfG0Lb0", "加烏山口景觀公路（Passo Giau）": "https://www.google.com/maps/search/?api=1&query=Giau%20Pass&query_place_id=ChIJb3K03chJeEcRwTNb2IiHM24", "沃爾特湖": "https://www.google.com/maps/search/?api=1&query=W%C3%B6rthersee&query_place_id=ChIJQU5emG53cEcRgWtf-TzVBS0", "舊城區漫步": "https://www.google.com/maps/search/?api=1&query=Villach%20Old%20Town&query_place_id=ChIJYWUakomBcEcR-ptO0PpTUWI"};
+var ATTRACTION_FACT_DB={"史蒂芬大教堂與舊城區漫步": "始建於1137年，南塔高137公尺，屋頂由23萬片彩色磚瓦拼出哈布斯堡雙鷹圖案。", "熊布朗宮殿與花園": "哈布斯堡王朝夏宮，共1,441個房間，1996年列入世界遺產；6歲莫札特曾在此為瑪麗亞·特蕾莎女皇表演。", "中央咖啡館": "1876年開業的傳奇咖啡館，佛洛伊德、托洛斯基等歷史名人都曾是常客。", "湖畔村落散步": "歐洲最古老的聚落之一，鹽礦開採史超過7,000年，全村列為世界遺產。", "天空步道眺望台": "2018年啟用，位於湖面上方360公尺，需搭纜車抵達。", "鹽礦坑導覽": "全球已知最古老的鹽礦，開採超過7,000年，可體驗礦工滑梯深入地底。", "瑪利亞廣場與格洛肯斯皮爾鐘琴": "慕尼黑市中心廣場，鐘琴以32尊人偶重現16世紀王室婚禮場景，每天11點與正午報時。", "英式花園": "1789年開闢，是全球最大的城市公園之一（比紐約中央公園還大），Eisbach河上常有人衝浪。", "維克圖亞連市場": "自1807年營運至今的慕尼黑市集，中央有座熱鬧的啤酒花園。", "舊城區與湖畔漫步": "蘇黎世舊城沿利馬特河而建，格羅斯明斯特雙塔傳說是查理曼大帝下令興建。", "班霍夫大街": "全球數一數二昂貴的購物街，街道下方銀行金庫據估藏有上兆美元的黃金與證券。", "林登霍夫眺望點": "羅馬時期海關遺址、後為卡洛林王朝宮殿所在地，如今是俯瞰利馬特河的清幽高地。", "教堂橋與舊城區": "建於1333年，歐洲現存最古老的木造廊橋，橋內畫作在1993年大火中部分燒毀後重新修復。", "皮拉圖斯山或瑞吉山日歸": "傳說山名源自彼拉多，擁有全球最陡的齒軌登山鐵路（坡度48%）。", "琉森湖遊船": "四州環繞、皮拉圖斯山與瑞吉山相映的湖泊，自1830年代明輪船時代便是熱門遊船勝地。", "少女峰 — 歐洲之巔": "海拔3,454公尺，歐洲最高火車站，1912年通車前歷經16年鑿穿艾格峰與僧侶峰的隧道工程。", "費爾斯特崖壁步道": "2015年啟用的懸空鋼構步道，向外延伸45公尺，可眺望艾格峰、僧侶峰與少女峰。", "艾格爾峰步道健行": "步道緊貼艾格峰惡名昭彰的1,800公尺北壁，1938年才首次成功登頂。", "格爾納格拉特鐵路 — 馬特洪峰景觀": "1898年通車，瑞士第二高的露天齒軌鐵路，攀升至3,089公尺，公認是欣賞馬特洪峰最經典的角度。", "五湖健行": "串連五座高山湖泊的健行路線，晴天時湖面能倒映出馬特洪峰，以Stellisee最為著名。", "無車村落漫步": "20世紀初即禁止燃油汽車進村，僅允許電動計程車與馬車，藉此保留清新空氣與傳統風貌。", "米蘭大教堂與屋頂漫步": "歷時近6個世紀才完工（1386–1965），是全球最大的哥德式教堂，擁有3,400尊雕像與135座尖塔。", "艾曼紐二世拱廊": "1877年開幕，全球最古老的購物拱廊之一；傳說在地板公牛馬賽克的敏感部位轉三圈能帶來好運。", "最後的晚餐（需提前訂票）": "達文西於1495–1498年繪製，因採用未經證實的乾壁畫技法，作品完成後數十年內便開始剝落。", "大教堂與布魯內萊斯基圓頂": "布魯內萊斯基的圓頂於1436年完工，是史上最大的磚造圓頂，建造時未使用任何木造支撐架。", "烏菲茲美術館": "原為麥地奇家族科西莫一世於1560年代興建的行政辦公室（uffizi），現收藏波提且利《維納斯的誕生》等文藝復興傑作。", "舊橋夕陽美景": "建於1345年，二戰時德軍撤退唯一未被炸毀的佛羅倫斯橋樑；1593年起橋上店鋪只准開設金飾店。", "聖馬可廣場與大教堂": "829年始建，據傳聖馬可遺骸被藏在豬肉桶中偷運出亞歷山卓；正面四匹青銅馬是1204年從君士坦丁堡掠奪而來。", "大運河水上巴士之旅": "威尼斯主要水道，長約3.8公里呈反S形，兩岸有超過170棟13至18世紀的歷史建築。", "穆拉諾與布拉諾島": "1291年玻璃工匠被強制遷至此島以防火災與技術外流，違規離開共和國者甚至可能被處死。", "三峰岩健行（Tre Cime di Lavaredo）": "三座尖峰最高達2,999公尺，一戰時曾是前線戰場，岩壁間至今仍可見戰壕遺跡，屬多洛米蒂世界遺產範圍。", "布萊爾湖（Lago di Braies）": "海拔1,496公尺的冰河湖，以土耳其藍湖水與木造小船聞名，義大利影集《觸摸天堂的一步》曾在此取景。", "加烏山口景觀公路（Passo Giau）": "海拔2,236公尺，多洛米蒂最具代表性的山口之一，也是環義自行車賽的常見賽段。", "沃爾特湖": "卡林西亞邦最大最溫暖的高山湖泊，夏季水溫可達約26°C，19世紀起就是奧地利知名度假勝地。", "舊城區漫步": "菲拉赫舊城保留中世紀街道格局，最早文獻記載可追溯至1060年，曾是奧地利與義大利間的重要貿易據點。"};
+function migrateAttractionInfo(segs){
+  var changed=false;
+  segs.forEach(function(seg){
+    (seg.activities||[]).forEach(function(a){
+      if(!a.text)return;
+      if((!a.link||a.link==="")&&ATTRACTION_LINK_DB[a.text]){a.link=ATTRACTION_LINK_DB[a.text];changed=true;}
+      if((!a.note||a.note==="")&&ATTRACTION_FACT_DB[a.text]){a.note=ATTRACTION_FACT_DB[a.text];changed=true;}
+    });
+  });
+  return changed;
+}
+
 function migrateDolomites(segs){
   var idx=-1;
   for(var i=0;i<segs.length;i++){if(segs[i].id==="dolomites"){idx=i;break;}}
   if(idx===-1)return false; // already migrated or not found
   var three=[
     {id:"dolomites1",city:"多落米地 Day 1",country:"義大利",start:"2026-07-30",end:"2026-07-31",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
-     activities:[{text:"三峰岩健行（Tre Cime di Lavaredo）",note:""}],
+     activities:[{text:"三峰岩健行（Tre Cime di Lavaredo）",note:"",link:"https://www.google.com/maps/search/?api=1&query=Tre%20Cime%20di%20Lavaredo&query_place_id=ChIJv9cthasyeEcRnn62kB3dxgE"}],
      transport:{mode:"建議租車",note:"從威尼斯約3小時，多洛米蒂火車班次有限"},lodging:{name:"",cost:""},notes:""},
     {id:"dolomites2",city:"多落米地 Day 2",country:"義大利",start:"2026-07-31",end:"2026-08-01",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
-     activities:[{text:"布萊爾湖（Lago di Braies）",note:""}],
+     activities:[{text:"布萊爾湖（Lago di Braies）",note:"",link:"https://www.google.com/maps/search/?api=1&query=Pragser%20Wildsee%20Lago%20di%20Braies&query_place_id=ChIJ5-06In4veEcR9cJfTfG0Lb0"}],
      transport:{mode:"租車移動",note:"在多洛米蒂區域內自駕"},lodging:{name:"",cost:""},notes:""},
     {id:"dolomites3",city:"多落米地 Day 3",country:"義大利",start:"2026-08-01",end:"2026-08-02",nights:1,lat:46.5404,lon:12.1357,elevation:1224,
-     activities:[{text:"加烏山口景觀公路（Passo Giau）",note:""}],
+     activities:[{text:"加烏山口景觀公路（Passo Giau）",note:"",link:"https://www.google.com/maps/search/?api=1&query=Giau%20Pass&query_place_id=ChIJb3K03chJeEcRwTNb2IiHM24"}],
      transport:{mode:"租車移動",note:"在多洛米蒂區域內自駕"},lodging:{name:"",cost:""},notes:""}
   ];
   segs.splice(idx,1,three[0],three[1],three[2]);
@@ -828,6 +875,7 @@ function renderItinerary(){
   list.innerHTML=html;
   list.addEventListener("input",handleItineraryInput);
   list.addEventListener("change",handleItineraryInput);
+  list.addEventListener("change",handlePhotoFileChange);
   list.addEventListener("click",handleItineraryClick);
   attachDragHandlers(list);
 }
@@ -926,6 +974,9 @@ function renderSegmentCard(seg,idx){
   h+='<div class="field-block"><p class="field-label">活動</p><ul class="activity-list">';
   var dateList=segDateList(seg),showDateSelect=dateList.length>1;
   seg.activities.forEach(function(a,i){
+    var isUrl=/^https?:\/\//i.test(a.link||"");
+    var uid=seg.id+'-'+i;
+    var hasExtra=!!(a.photo||a.link||a.note);
     h+='<li class="activity-item" draggable="true" data-drag-seg="'+seg.id+'" data-drag-idx="'+i+'">';
     h+='<div class="activity-row">';
     h+='<span class="drag-handle" title="拖曳排序">⠿</span>';
@@ -935,9 +986,26 @@ function renderSegmentCard(seg,idx){
       h+='</select>';
     }
     h+='<input type="time" class="time-input" value="'+esc(a.time||'')+'" data-seg="'+seg.id+'" data-field="activity-time" data-idx="'+i+'" title="設定時間">';
-    h+='<input type="text" class="activity-text" value="'+esc(a.text)+'" data-seg="'+seg.id+'" data-field="activities-text" data-idx="'+i+'" placeholder="活動名稱">';
+    h+='<input type="text" class="activity-text" value="'+esc(a.text)+'" data-seg="'+seg.id+'" data-field="activities-text" data-idx="'+i+'" placeholder="景點名稱">';
+    if(hasExtra)h+='<span class="has-info-dot" title="點擊景點名稱查看照片與詳情"></span>';
     h+='<button class="icon-btn" data-action="remove-activity" data-seg="'+seg.id+'" data-idx="'+i+'" aria-label="移除">×</button></div>';
-    h+='<textarea class="activity-note-box" placeholder="補充說明 — 地址、訂票連結…" data-seg="'+seg.id+'" data-field="activities-note" data-idx="'+i+'">'+esc(a.note)+'</textarea></li>';
+    h+='<div class="activity-expand">';
+    h+='<div class="activity-photo-row">';
+    h+='<div class="activity-photo-wrap" data-action="open-photo-picker" data-seg="'+seg.id+'" data-idx="'+i+'">';
+    if(a.photo){
+      h+='<img src="'+a.photo+'" alt="">';
+      h+='<button type="button" class="activity-photo-remove" data-action="remove-activity-photo" data-seg="'+seg.id+'" data-idx="'+i+'" title="移除照片">×</button>';
+    }else{
+      h+='<div class="activity-photo-placeholder"><span class="activity-photo-icon">📷</span><span class="activity-photo-label">新增照片</span></div>';
+    }
+    h+='<input type="file" accept="image/*" class="activity-photo-input" id="photo-input-'+uid+'" data-seg="'+seg.id+'" data-idx="'+i+'">';
+    h+='</div></div>';
+    h+='<div class="activity-link-row">';
+    h+='<input type="text" value="'+esc(a.link||'')+'" placeholder="Google Maps 連結／景點網站" data-seg="'+seg.id+'" data-field="activity-link" data-idx="'+i+'">';
+    h+='<button class="activity-open-btn" data-action="open-activity-link" data-seg="'+seg.id+'" data-idx="'+i+'"'+(isUrl?'':' disabled')+' title="開啟連結">🗺️ 開啟</button>';
+    h+='</div>';
+    h+='<textarea class="activity-note-box" placeholder="補充說明 — 介紹、備註、開放時間…" data-seg="'+seg.id+'" data-field="activities-note" data-idx="'+i+'">'+esc(a.note)+'</textarea>';
+    h+='</div></li>';
   });
   h+='</ul><button class="add-btn" data-action="add-activity" data-seg="'+seg.id+'">＋ 新增活動</button>';
   h+=buildTimelineHTML(seg);
@@ -996,6 +1064,14 @@ function handleItineraryInput(e){
     if(seg.activities[adi])seg.activities[adi].date=t.value;
     refreshTimeline(segId,seg);
   }
+  else if(field==="activity-link"){
+    var ali=parseInt(t.getAttribute("data-idx"),10);
+    if(seg.activities[ali]){
+      seg.activities[ali].link=t.value;
+      var aOpenBtn=t.parentNode.querySelector('[data-action="open-activity-link"]');
+      if(aOpenBtn){var aIsUrl=/^https?:\/\//i.test(t.value);aOpenBtn.disabled=!aIsUrl;}
+    }
+  }
   else if(field==="food-name"){var fi=parseInt(t.getAttribute("data-idx"),10);if(seg.food[fi])seg.food[fi].name=t.value;}
   else if(field==="food-link"){
     var fi2=parseInt(t.getAttribute("data-idx"),10);
@@ -1009,13 +1085,60 @@ function handleItineraryInput(e){
   else setField(seg,field,t.value);
   saveItinerary();
 }
+function handlePhotoFileChange(e){
+  var t=e.target;
+  if(!t.classList||!t.classList.contains("activity-photo-input"))return;
+  var file=t.files&&t.files[0];
+  if(!file)return;
+  var segId=t.getAttribute("data-seg"),idx=parseInt(t.getAttribute("data-idx"),10);
+  var seg=findSeg(segId);
+  if(!seg||!seg.activities[idx])return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      var maxDim=720;
+      var scale=Math.min(1,maxDim/Math.max(img.width,img.height));
+      var w=Math.round(img.width*scale),h=Math.round(img.height*scale);
+      var canvas=document.createElement("canvas");
+      canvas.width=w;canvas.height=h;
+      canvas.getContext("2d").drawImage(img,0,0,w,h);
+      var compressed=canvas.toDataURL("image/jpeg",0.72);
+      seg.activities[idx].photo=compressed;
+      renderItinerary();
+      saveItinerary();
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 function handleItineraryClick(e){
   var t=e.target;
-  if(t.classList&&t.classList.contains("activity-text")){var li=t.closest(".activity-item");if(li)li.classList.add("open");return;}
+  if(t.classList&&t.classList.contains("activity-text")){var li=t.closest(".activity-item");if(li)li.classList.toggle("open");return;}
+  var actionEl=t.closest("[data-action]");
+  if(!actionEl)return;
+  t=actionEl;
   var action=t.getAttribute("data-action"),segId=t.getAttribute("data-seg"),seg=findSeg(segId);
   if(!action||!seg)return;
-  if(action==="add-activity"){seg.activities.push({text:"",note:"",time:"",date:segDateList(seg)[0]});renderItinerary();saveItinerary();var s=document.querySelector('#card-'+segId+' .activity-list li:last-child input');if(s)s.focus();}
+  if(action==="open-photo-picker"){
+    var fileInput=t.querySelector('.activity-photo-input');
+    if(fileInput)fileInput.click();
+    return;
+  }
+  if(action==="remove-activity-photo"){
+    var pIdx=parseInt(t.getAttribute("data-idx"),10);
+    if(seg.activities[pIdx]){seg.activities[pIdx].photo="";renderItinerary();saveItinerary();}
+    return;
+  }
+  if(action==="add-activity"){seg.activities.push({text:"",note:"",time:"",date:segDateList(seg)[0],link:"",photo:""});renderItinerary();saveItinerary();var s=document.querySelector('#card-'+segId+' .activity-list li:last-child input');if(s)s.focus();}
   else if(action==="remove-activity"){seg.activities.splice(parseInt(t.getAttribute("data-idx"),10),1);renderItinerary();saveItinerary();}
+  else if(action==="open-activity-link"){
+    var attIdx=parseInt(t.getAttribute("data-idx"),10);
+    var attItem=seg.activities&&seg.activities[attIdx];
+    if(attItem&&attItem.link&&/^https?:\/\//i.test(attItem.link)){
+      window.open(attItem.link,"_blank","noopener,noreferrer");
+    }
+  }
   else if(action==="add-food"){
     if(!seg.food)seg.food=[];
     seg.food.push({name:"",link:""});
@@ -1308,7 +1431,9 @@ function syncFromFirebase(){
       var newIt=serialize(results[0]),newBu=serialize(results[1]),newPa=serialize(results[2]);
       var changed=false;
       if(results[0]&&newIt!==_lastItinerary){SEGMENTS=results[0];normalizeActivities(SEGMENTS);
-        if(migrateDolomites(SEGMENTS)){normalizeActivities(SEGMENTS);fbSet("itinerary-data",SEGMENTS).catch(function(){});}
+        var migA=migrateDolomites(SEGMENTS);
+        var migB=migrateAttractionInfo(SEGMENTS);
+        if(migA||migB){normalizeActivities(SEGMENTS);fbSet("itinerary-data",SEGMENTS).catch(function(){});}
         _lastItinerary=serialize(SEGMENTS);changed=true;}
       if(results[1]&&newBu!==_lastBudget){BUDGET=results[1];if(!BUDGET.rates)BUDGET.rates={};if(!BUDGET.members)BUDGET.members=[];_lastBudget=newBu;changed=true;}
       if(results[2]&&newPa!==_lastPacking){PACKING_STATE=results[2];if(!PACKING_STATE.checked)PACKING_STATE.checked={};if(!PACKING_STATE.custom)PACKING_STATE.custom={};_lastPacking=newPa;changed=true;}
@@ -1331,10 +1456,13 @@ Promise.all([fbGet("itinerary-data"),fbGet("budget-data"),fbGet("packing-data")]
   .then(function(results){
     SEGMENTS=results[0]||JSON.parse(JSON.stringify(DEFAULT_SEGMENTS));normalizeActivities(SEGMENTS);
     // Auto-migrate: if old single dolomites entry exists, split it into 3 and save back
-    if(migrateDolomites(SEGMENTS)){
+    var migDolo=migrateDolomites(SEGMENTS);
+    // Auto-migrate: backfill Google Maps links + historical facts for known attractions
+    var migInfo=migrateAttractionInfo(SEGMENTS);
+    if(migDolo||migInfo){
       normalizeActivities(SEGMENTS);
       fbSet("itinerary-data",SEGMENTS).catch(function(){});
-      setSyncStatus("saving","自動升級多落米地為三天…");
+      setSyncStatus("saving","自動補上景點連結與簡介…");
     }
     BUDGET=results[1]||JSON.parse(JSON.stringify(DEFAULT_BUDGET));
     if(!BUDGET.rates)BUDGET.rates={};if(!BUDGET.members)BUDGET.members=[];
